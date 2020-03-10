@@ -1,0 +1,4 @@
+Selection,Label,Name,fn,,,,
+line,Direction X,x,"hou.selectedNodes()[0].setParms({""dirx"": 1, ""diry"": 0, ""dirz"": 0})",,,,
+line,Direction Y,y,"hou.selectedNodes()[0].setParms({""dirx"": 0, ""diry"": 1, ""dirz"": 0})",,,,
+line,Direction Z,z,"hou.selectedNodes()[0].setParms({""dirx"": 0, ""diry"": 0, ""dirz"": 1})",,,,
