@@ -1,0 +1,67 @@
+// Magic: c64ffc63
+// Automatically generated PSI dialog (PSI version 18.0.348)
+// Sat Feb 22 21:45:50 2020
+
+
+f_tmp = FLOAT_FIELD;	// dialog.top.ui
+
+bend.gad = ROW
+{
+   HSTRETCH
+
+   bend.label = PARM_LABEL( "Bend", "bend" ) ;
+   PARM(float, 1, "bend", none, none) RANGE(-90, 90)
+	LABELREF( bend.label ) HSTRETCH;
+
+}
+
+twist.gad = ROW
+{
+   HSTRETCH
+
+   twist.label = PARM_LABEL( "Twist", "twist" ) ;
+   PARM(float, 1, "twist", none, none) RANGE(-180, 180)
+	LABELREF( twist.label ) HSTRETCH;
+
+}
+
+lengthscale.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ lengthscale.label = PARM_LABEL("Length Scale", "lengthscale");
+ PARM(float, 1, "lengthscale", none, field) RANGE(0,2)
+	 LABELREF(lengthscale.label) HSTRETCH;
+
+}
+
+taper.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ taper.label = PARM_LABEL("Taper", "taper");
+ PARM(float, 1, "taper", none, field) RANGE(0,2)
+	 LABELREF(taper.label) HSTRETCH;
+
+}
+
+# warning cpp warning: "GenV3/subdialog.top.ui":12 Macro "PARMSPACING" redefined.  Using later definition
+# warning cpp warning: "GenV3/subdialog.top.ui":13 Macro "LAYOUTDIR" redefined.  Using later definition
+# warning cpp warning: "GenV3/subdialog.top.ui":14 Macro "LOOK_PLAIN" redefined.  Using later definition
+# warning cpp warning: "GenV3/subdialog.top.ui":15 Macro "DO_JUSTIFY" redefined.  Using later definition
+dialog_norm.gad = 
+{
+    LAYOUT(horizontal) SPACING(0.05) HSTRETCH  JUSTIFY(left, center)
+    bend.gad; 
+    twist.gad; 
+    lengthscale.gad; 
+    taper.gad; 
+} 
+// dialog.bot.ui
+
+dialog = OPENNOTIFIER
+{
+    LAYOUT(vertical) VALUE(open.val) HSTRETCH
+
+    dialog_norm.gad;
+}

@@ -1,0 +1,1218 @@
+// Magic: bacc690c
+// Automatically generated PSI dialog (PSI version 18.0.348)
+// Wed Feb 12 22:20:02 2020
+
+
+f_tmp = FLOAT_FIELD;	// dialog.top.ui
+keeppos.row.join =		
+{
+  LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+
+keeppos.gad = ROW
+{
+    
+
+    PARM_BUTTON("keeppos", "Keep Position When Parenting") toggle VALUE(keeppos.val);
+
+    {  }
+
+}
+
+pre_xform.gad = ROW
+{
+
+    {  }
+    { WIDTH(0.1) }
+
+    pre_xform.menu;
+}
+}	// Template join.bot
+
+xOrd.row.join =		
+{
+  LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+
+xOrd.gad = 
+{
+    LAYOUT(horizontal) JUSTIFY(left, center) 
+
+    PARM_LABEL_SIMPLE("Transform Order", "xOrd") WIDTH(1.5);
+    { WIDTH(0.09) }
+
+    xOrd.menu;
+
+    {  }
+
+}
+
+rOrd.gad = 
+{
+    LAYOUT(horizontal) JUSTIFY(left, center) 
+
+    rOrd.menu;
+
+    {  }
+
+}
+}	// Template join.bot
+
+
+t.gad = ROW
+{
+   HSTRETCH
+
+   t.label = PARM_LABEL("Translate", "t") WIDTH(1.5);
+   PARM(float, 3, "t", none, none, "X,Y,Z")
+	RANGE(0,1)  LABELREF(t.label)
+	HSTRETCH;
+
+    ACTION_ICONBUTTON "BUTTONS_match_transform" VALUE(t.script_action)
+	HELP("Select an object to match the translation with.")
+	UI_FLAT_ICON_BTN_SIZE_SMALL LOOKFLAT;
+
+}
+
+r.gad = ROW
+{
+   HSTRETCH
+
+   r.label = PARM_LABEL("Rotate", "r") WIDTH(1.5);
+   PARM(float, 3, "r", none, none, "X,Y,Z")
+	RANGE(0,360)  LABELREF(r.label)
+	HSTRETCH;
+
+    ACTION_ICONBUTTON "BUTTONS_match_rotation" VALUE(r.script_action)
+	HELP("Select an object to match the rotation with.")
+	UI_FLAT_ICON_BTN_SIZE_SMALL LOOKFLAT;
+
+}
+
+s.gad = ROW
+{
+   HSTRETCH
+
+   s.label = PARM_LABEL("Scale", "s") WIDTH(1.5);
+   PARM(float, 3, "s", none, none, "X,Y,Z")
+	RANGE(0,1)  LABELREF(s.label)
+	HSTRETCH;
+
+    ACTION_ICONBUTTON "BUTTONS_match_scale" VALUE(s.script_action)
+	HELP("Select an object to match the scale with.")
+	UI_FLAT_ICON_BTN_SIZE_SMALL LOOKFLAT;
+
+}
+tdisplay.row.join =		
+{
+  LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+tdisplay.join =		
+{
+  LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+tdisplay.gad = NULL { }
+display.gad = NULL { }
+}	
+}	// Template join.bot
+
+l_iconscale.gad = NULL { }
+caching.gad = NULL { }
+
+picking.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("picking", "Viewport Selecting Enabled") toggle VALUE(picking.val);
+
+    { HSTRETCH }
+
+}
+
+pickscript.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+
+ pickscript.label = PARM_LABEL("Select Script", "pickscript") WIDTH(1.5);
+
+ PARM_FIELD (pathstring, "pickscript") LABELREF(pickscript.label)
+	VALUE(pickscript.val) HSTRETCH;
+
+    pickscript.menu SIZE(0.26, 0.26) LOOK(menuiconbutton);
+
+ ACTION_ICONBUTTON "BUTTONS_chooser_file" VALUE(pickscript.plus) LOOKFLAT
+    HELP("Open floating file chooser") UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+lookatpath.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH JUSTIFY(left,center)
+
+ lookatpath.label = PARM_LABEL("Look At", "lookatpath") WIDTH(1.5);
+ PARM_FIELD(pathstring, "lookatpath") VALUE(lookatpath.val) 
+	LABELREF(lookatpath.label) HSTRETCH;
+
+ ACTION_ICONBUTTON "BUTTONS_jump" VALUE(lookatpath.jump)
+    HELP("Jump to operator\nCtrl+LMB: Open parameters popup dialog")
+    UI_FLAT_ICON_BTN_SIZE_SMALL LOOKFLAT;
+
+ ACTION_ICONBUTTON "BUTTONS_chooser_node" VALUE(lookatpath.plus)
+    HELP("Open floating operator chooser") UI_FLAT_ICON_BTN_SIZE_SMALL 
+    LOOKFLAT;
+
+}
+
+lookup.gad = 
+{
+    LAYOUT(horizontal) JUSTIFY(left, center) HSTRETCH
+
+    PARM_LABEL_SIMPLE("Look At Up Vector", "lookup") WIDTH(1.5);
+    { WIDTH(0.09) }
+
+    lookup.menu;
+
+    { HSTRETCH }
+
+}
+
+pathobjpath.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH JUSTIFY(left,center)
+
+ pathobjpath.label = PARM_LABEL("Path Object", "pathobjpath") WIDTH(1.5);
+ PARM_FIELD(pathstring, "pathobjpath") VALUE(pathobjpath.val) 
+	LABELREF(pathobjpath.label) HSTRETCH;
+
+ ACTION_ICONBUTTON "BUTTONS_jump" VALUE(pathobjpath.jump)
+    HELP("Jump to operator\nCtrl+LMB: Open parameters popup dialog")
+    UI_FLAT_ICON_BTN_SIZE_SMALL LOOKFLAT;
+
+ ACTION_ICONBUTTON "BUTTONS_chooser_node" VALUE(pathobjpath.plus)
+    HELP("Open floating operator chooser") UI_FLAT_ICON_BTN_SIZE_SMALL 
+    LOOKFLAT;
+
+}
+
+roll.gad = ROW
+{
+   HSTRETCH
+
+   roll.label = PARM_LABEL( "Roll", "roll" ) WIDTH(1.5);
+   PARM(float, 1, "roll", none, none) RANGE(-360, 360)
+	LABELREF( roll.label ) HSTRETCH;
+
+}
+
+pos.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ pos.label = PARM_LABEL("Position", "pos") WIDTH(1.5);
+ PARM(float, 1, "pos", none, none) RANGE(0,10)
+	LOCK_RANGE_MIN LABELREF(pos.label) HSTRETCH;
+
+}
+
+uparmtype.gad = 
+{
+    LAYOUT(horizontal) JUSTIFY(left, center) HSTRETCH
+
+    PARM_LABEL_SIMPLE("Parameterization", "uparmtype") WIDTH(1.5);
+    { WIDTH(0.09) }
+
+    uparmtype.menu;
+
+    { HSTRETCH }
+
+}
+
+pathorient.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ pathorient.label = PARM_LABEL("Orient Along Path", "pathorient") WIDTH(1.5);
+ PARM(integer, 1, "pathorient", none, none) RANGE(0,1)
+	 LABELREF(pathorient.label) HSTRETCH;
+
+}
+
+up.gad = ROW 
+{
+    HSTRETCH
+
+    up.label = PARM_LABEL("Orient Up Vector", "up") WIDTH(1.5);
+    PARM(float, 3, "up", none, none) LABELREF(up.label)
+	HSTRETCH;
+
+}
+
+bank.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ bank.label = PARM_LABEL("Auto-Bank factor", "bank") WIDTH(1.5);
+ PARM(float, 1, "bank", none, none) RANGE(-1,1)
+	 LABELREF(bank.label) HSTRETCH;
+
+}
+
+light_enabled.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("light_enabled", "On") toggle VALUE(light_enabled.val);
+
+    { HSTRETCH }
+
+}
+
+ogl_enablelight.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("ogl_enablelight", "Enabled In Viewports") toggle VALUE(ogl_enablelight.val);
+
+    { HSTRETCH }
+
+}
+
+light_type.gad = 
+{
+    LAYOUT(horizontal) JUSTIFY(left, center) HSTRETCH
+
+    PARM_LABEL_SIMPLE("Light Type", "light_type") WIDTH(1.5);
+    { WIDTH(0.09) }
+
+    light_type.menu;
+
+    { HSTRETCH }
+
+}
+
+sepparm.gad = 
+
+{
+    LAYOUT(vertical) HSTRETCH 
+
+    { HEIGHT(0.1) }
+    SEPARATOR; 
+    { HEIGHT(0.1) }
+}
+
+grid1_orient.gad = 
+{
+    LAYOUT(horizontal) JUSTIFY(left, center) HSTRETCH
+
+    PARM_LABEL_SIMPLE("Orientation", "grid1_orient") WIDTH(1.5);
+    { WIDTH(0.09) }
+
+    grid1_orient.menu;
+
+    { HSTRETCH }
+
+}
+
+divisions.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ divisions.label = PARM_LABEL("Divisions", "divisions") WIDTH(1.5);
+ PARM(integer, 1, "divisions", none, none) RANGE(3,50)
+	LOCK_RANGE_MIN LABELREF(divisions.label) HSTRETCH;
+
+}
+
+sphere1_rows.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ sphere1_rows.label = PARM_LABEL("Rows", "sphere1_rows") WIDTH(1.5);
+ PARM(integer, 1, "sphere1_rows", none, none) RANGE(3,50)
+	LOCK_RANGE_MIN LABELREF(sphere1_rows.label) HSTRETCH;
+
+}
+
+sphere1_cols.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ sphere1_cols.label = PARM_LABEL("Columns", "sphere1_cols") WIDTH(1.5);
+ PARM(integer, 1, "sphere1_cols", none, none) RANGE(3,50)
+	LOCK_RANGE_MIN LABELREF(sphere1_cols.label) HSTRETCH;
+
+}
+
+torus1_rad.gad = ROW
+{
+   HSTRETCH
+
+   torus1_rad.label = PARM_LABEL("Radius", "torus1_rad") WIDTH(1.5);
+   PARM(float, 2, "torus1_rad", none, none, "X,Y")
+	RANGE(-1,1)  LABELREF(torus1_rad.label)
+	HSTRETCH;
+
+}
+
+torus1_rows.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ torus1_rows.label = PARM_LABEL("Rows", "torus1_rows") WIDTH(1.5);
+ PARM(integer, 1, "torus1_rows", none, none) RANGE(3,50)
+	LOCK_RANGE_MIN LABELREF(torus1_rows.label) HSTRETCH;
+
+}
+
+torus1_cols.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ torus1_cols.label = PARM_LABEL("Columns", "torus1_cols") WIDTH(1.5);
+ PARM(integer, 1, "torus1_cols", none, none) RANGE(3,50)
+	LOCK_RANGE_MIN LABELREF(torus1_cols.label) HSTRETCH;
+
+}
+
+tube1_orient.gad = 
+{
+    LAYOUT(horizontal) JUSTIFY(left, center) HSTRETCH
+
+    PARM_LABEL_SIMPLE("Orientation", "tube1_orient") WIDTH(1.5);
+    { WIDTH(0.09) }
+
+    tube1_orient.menu;
+
+    { HSTRETCH }
+
+}
+
+tube1_cap.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("tube1_cap", "End Caps") toggle VALUE(tube1_cap.val);
+
+    { HSTRETCH }
+
+}
+
+tube1_radscale.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ tube1_radscale.label = PARM_LABEL("Radius Scale", "tube1_radscale") WIDTH(1.5);
+ PARM(float, 1, "tube1_radscale", none, none) RANGE(0,1)
+	LOCK_RANGE_MIN LABELREF(tube1_radscale.label) HSTRETCH;
+
+}
+
+tube1_height.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ tube1_height.label = PARM_LABEL("Height", "tube1_height") WIDTH(1.5);
+ PARM(float, 1, "tube1_height", none, none) RANGE(0,10)
+	 LABELREF(tube1_height.label) HSTRETCH;
+
+}
+
+tube1_rows.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ tube1_rows.label = PARM_LABEL("Rows", "tube1_rows") WIDTH(1.5);
+ PARM(integer, 1, "tube1_rows", none, none) RANGE(2,50)
+	LOCK_RANGE_MIN LABELREF(tube1_rows.label) HSTRETCH;
+
+}
+
+tube1_cols.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ tube1_cols.label = PARM_LABEL("Columns", "tube1_cols") WIDTH(1.5);
+ PARM(integer, 1, "tube1_cols", none, none) RANGE(3,50)
+	LOCK_RANGE_MIN LABELREF(tube1_cols.label) HSTRETCH;
+
+}
+
+spot_lamp.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ spot_lamp.label = PARM_LABEL("Lamp Radius", "spot_lamp") WIDTH(1.5);
+ PARM(float, 1, "spot_lamp", none, none) RANGE(0.001,1)
+	 LABELREF(spot_lamp.label) HSTRETCH;
+
+}
+
+spot_output.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ spot_output.label = PARM_LABEL("Output Radius", "spot_output") WIDTH(1.5);
+ PARM(float, 1, "spot_output", none, none) RANGE(0.01,1)
+	 LABELREF(spot_output.label) HSTRETCH;
+
+}
+
+spotlight_tube_height.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ spotlight_tube_height.label = PARM_LABEL("Spotlight Length", "spotlight_tube_height") WIDTH(1.5);
+ PARM(float, 1, "spotlight_tube_height", none, none) RANGE(0.10000000000000001,2)
+	 LABELREF(spotlight_tube_height.label) HSTRETCH;
+
+}
+
+switch.gad = 
+{
+    LAYOUT(horizontal) JUSTIFY(left, center) HSTRETCH
+
+    PARM_LABEL_SIMPLE("Emission Type", "switch") WIDTH(1.5);
+    { WIDTH(0.09) }
+
+    switch.menu;
+
+    { HSTRETCH }
+
+}
+
+NT_MAT_DIFFUSE1_diffuse.gad = 
+{
+    LAYOUT (horizontal) HSTRETCH
+
+    NT_MAT_DIFFUSE1_diffuse.label = PARM_LABEL("Diffuse", "NT_MAT_DIFFUSE1_diffuse") WIDTH(1.5);
+    PARM(float, 3, "NT_MAT_DIFFUSE1_diffuse", none, COLOR, "R,G,B") 
+	LABELREF(NT_MAT_DIFFUSE1_diffuse.label) HSTRETCH;
+
+}
+
+NT_MAT_DIFFUSE1_opacity.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_MAT_DIFFUSE1_opacity.label = PARM_LABEL("Opacity", "NT_MAT_DIFFUSE1_opacity") WIDTH(1.5);
+ PARM(float, 1, "NT_MAT_DIFFUSE1_opacity", none, none) RANGE(0,1)
+	 LABELREF(NT_MAT_DIFFUSE1_opacity.label) HSTRETCH;
+
+}
+
+NT_MAT_DIFFUSE1_smooth.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_MAT_DIFFUSE1_smooth", "Smooth") toggle VALUE(NT_MAT_DIFFUSE1_smooth.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_BLACKBODY1_efficiency_or_texture.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_EMIS_BLACKBODY1_efficiency_or_texture.label = PARM_LABEL("Texture", "NT_EMIS_BLACKBODY1_efficiency_or_texture") WIDTH(1.5);
+ PARM(float, 1, "NT_EMIS_BLACKBODY1_efficiency_or_texture", none, none) RANGE(0,1)
+	 LABELREF(NT_EMIS_BLACKBODY1_efficiency_or_texture.label) HSTRETCH;
+
+}
+
+blackbody_text_switcher_switch.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("blackbody_text_switcher_switch", "Use Distribution/IES Texture") toggle VALUE(blackbody_text_switcher_switch.val);
+
+    { HSTRETCH }
+
+}
+
+sepparm3.gad = 
+
+{
+    LAYOUT(vertical) HSTRETCH 
+
+    { HEIGHT(0.1) }
+    SEPARATOR; 
+    { HEIGHT(0.1) }
+}
+
+NT_EMIS_BLACKBODY1_power.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_EMIS_BLACKBODY1_power.label = PARM_LABEL("Power", "NT_EMIS_BLACKBODY1_power") WIDTH(1.5);
+ PARM(float, 1, "NT_EMIS_BLACKBODY1_power", none, none) RANGE(0.0001,100000)
+	 LABELREF(NT_EMIS_BLACKBODY1_power.label) HSTRETCH;
+
+}
+
+NT_EMIS_BLACKBODY1_surfaceBrightness.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_BLACKBODY1_surfaceBrightness", "Surface brightness") toggle VALUE(NT_EMIS_BLACKBODY1_surfaceBrightness.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_BLACKBODY1_temperature.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_EMIS_BLACKBODY1_temperature.label = PARM_LABEL("Temperature", "NT_EMIS_BLACKBODY1_temperature") WIDTH(1.5);
+ PARM(float, 1, "NT_EMIS_BLACKBODY1_temperature", none, none) RANGE(500,12000)
+	 LABELREF(NT_EMIS_BLACKBODY1_temperature.label) HSTRETCH;
+
+}
+
+NT_EMIS_BLACKBODY1_normalize.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_BLACKBODY1_normalize", "Normalize") toggle VALUE(NT_EMIS_BLACKBODY1_normalize.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_BLACKBODY1_sampling_rate.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_EMIS_BLACKBODY1_sampling_rate.label = PARM_LABEL("Sampling rate", "NT_EMIS_BLACKBODY1_sampling_rate") WIDTH(1.5);
+ PARM(float, 1, "NT_EMIS_BLACKBODY1_sampling_rate", none, none) RANGE(0,10000)
+	 LABELREF(NT_EMIS_BLACKBODY1_sampling_rate.label) HSTRETCH;
+
+}
+
+NT_EMIS_BLACKBODY1_illumination.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_BLACKBODY1_illumination", "Visible on diffuse") toggle VALUE(NT_EMIS_BLACKBODY1_illumination.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_BLACKBODY1_visibleOnSpecular.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_BLACKBODY1_visibleOnSpecular", "Visible on specular") toggle VALUE(NT_EMIS_BLACKBODY1_visibleOnSpecular.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_BLACKBODY1_transparentEmission.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_BLACKBODY1_transparentEmission", "Transparent emission") toggle VALUE(NT_EMIS_BLACKBODY1_transparentEmission.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_BLACKBODY1_castShadows.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_BLACKBODY1_castShadows", "Cast shadows") toggle VALUE(NT_EMIS_BLACKBODY1_castShadows.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_BLACKBODY1_doubleSided.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_BLACKBODY1_doubleSided", "Double sided") toggle VALUE(NT_EMIS_BLACKBODY1_doubleSided.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_BLACKBODY1_lightPassId.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_EMIS_BLACKBODY1_lightPassId.label = PARM_LABEL("Light pass ID", "NT_EMIS_BLACKBODY1_lightPassId") WIDTH(1.5);
+ PARM(integer, 1, "NT_EMIS_BLACKBODY1_lightPassId", none, none) RANGE(1,8)
+	 LABELREF(NT_EMIS_BLACKBODY1_lightPassId.label) HSTRETCH;
+
+}
+
+emission_efficiency_color_A_VALUE.gad = 
+{
+    LAYOUT (horizontal) HSTRETCH
+
+    emission_efficiency_color_A_VALUE.label = PARM_LABEL("Texture", "emission_efficiency_color_A_VALUE") WIDTH(1.5);
+    PARM(float, 3, "emission_efficiency_color_A_VALUE", none, COLOR, "R,G,B") 
+	LABELREF(emission_efficiency_color_A_VALUE.label) HSTRETCH;
+
+}
+
+emission_text_switcher_switch.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("emission_text_switcher_switch", "Use Distribution Texture") toggle VALUE(emission_text_switcher_switch.val);
+
+    { HSTRETCH }
+
+}
+
+sepparm2.gad = 
+
+{
+    LAYOUT(vertical) HSTRETCH 
+
+    { HEIGHT(0.1) }
+    SEPARATOR; 
+    { HEIGHT(0.1) }
+}
+
+NT_EMIS_TEXTURE1_power.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_EMIS_TEXTURE1_power.label = PARM_LABEL("Power", "NT_EMIS_TEXTURE1_power") WIDTH(1.5);
+ PARM(float, 1, "NT_EMIS_TEXTURE1_power", none, none) RANGE(0.0001,100000)
+	 LABELREF(NT_EMIS_TEXTURE1_power.label) HSTRETCH;
+
+}
+
+NT_EMIS_TEXTURE1_surfaceBrightness.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_TEXTURE1_surfaceBrightness", "Surface brightness") toggle VALUE(NT_EMIS_TEXTURE1_surfaceBrightness.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_TEXTURE1_distribution.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_EMIS_TEXTURE1_distribution.label = PARM_LABEL("Distribution", "NT_EMIS_TEXTURE1_distribution") WIDTH(1.5);
+ PARM(float, 1, "NT_EMIS_TEXTURE1_distribution", none, none) RANGE(0,1)
+	 LABELREF(NT_EMIS_TEXTURE1_distribution.label) HSTRETCH;
+
+}
+
+NT_EMIS_TEXTURE1_sampling_rate.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_EMIS_TEXTURE1_sampling_rate.label = PARM_LABEL("Sampling rate", "NT_EMIS_TEXTURE1_sampling_rate") WIDTH(1.5);
+ PARM(float, 1, "NT_EMIS_TEXTURE1_sampling_rate", none, none) RANGE(0,10000)
+	 LABELREF(NT_EMIS_TEXTURE1_sampling_rate.label) HSTRETCH;
+
+}
+
+NT_EMIS_TEXTURE1_illumination.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_TEXTURE1_illumination", "Visible on diffuse") toggle VALUE(NT_EMIS_TEXTURE1_illumination.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_TEXTURE1_visibleOnSpecular.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_TEXTURE1_visibleOnSpecular", "Visible on specular") toggle VALUE(NT_EMIS_TEXTURE1_visibleOnSpecular.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_TEXTURE1_transparentEmission.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_TEXTURE1_transparentEmission", "Transparent emission") toggle VALUE(NT_EMIS_TEXTURE1_transparentEmission.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_TEXTURE1_castShadows.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_TEXTURE1_castShadows", "Cast shadows") toggle VALUE(NT_EMIS_TEXTURE1_castShadows.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_TEXTURE1_doubleSided.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_EMIS_TEXTURE1_doubleSided", "Double sided") toggle VALUE(NT_EMIS_TEXTURE1_doubleSided.val);
+
+    { HSTRETCH }
+
+}
+
+NT_EMIS_TEXTURE1_lightPassId.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_EMIS_TEXTURE1_lightPassId.label = PARM_LABEL("Light pass ID", "NT_EMIS_TEXTURE1_lightPassId") WIDTH(1.5);
+ PARM(integer, 1, "NT_EMIS_TEXTURE1_lightPassId", none, none) RANGE(1,8)
+	 LABELREF(NT_EMIS_TEXTURE1_lightPassId.label) HSTRETCH;
+
+}
+
+NT_TEX_IMAGE1_A_FILENAME.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+
+ NT_TEX_IMAGE1_A_FILENAME.label = PARM_LABEL("filename", "NT_TEX_IMAGE1_A_FILENAME") WIDTH(1.5);
+
+ PARM_FIELD (pathstring, "NT_TEX_IMAGE1_A_FILENAME") LABELREF(NT_TEX_IMAGE1_A_FILENAME.label)
+	VALUE(NT_TEX_IMAGE1_A_FILENAME.val) HSTRETCH;
+
+    NT_TEX_IMAGE1_A_FILENAME.menu SIZE(0.26, 0.26) LOOK(menuiconbutton);
+
+ ACTION_ICONBUTTON "BUTTONS_chooser_file" VALUE(NT_TEX_IMAGE1_A_FILENAME.plus) LOOKFLAT
+    HELP("Open floating file chooser") UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+NT_TEX_IMAGE1_power.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_TEX_IMAGE1_power.label = PARM_LABEL("Power", "NT_TEX_IMAGE1_power") WIDTH(1.5);
+ PARM(float, 1, "NT_TEX_IMAGE1_power", none, none) RANGE(0,1)
+	 LABELREF(NT_TEX_IMAGE1_power.label) HSTRETCH;
+
+}
+
+NT_TEX_IMAGE1_gamma.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ NT_TEX_IMAGE1_gamma.label = PARM_LABEL("Gamma", "NT_TEX_IMAGE1_gamma") WIDTH(1.5);
+ PARM(float, 1, "NT_TEX_IMAGE1_gamma", none, none) RANGE(0.10000000000000001,8)
+	 LABELREF(NT_TEX_IMAGE1_gamma.label) HSTRETCH;
+
+}
+
+NT_TEX_IMAGE1_invert.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("NT_TEX_IMAGE1_invert", "Invert") toggle VALUE(NT_TEX_IMAGE1_invert.val);
+
+    { HSTRETCH }
+
+}
+
+useAlpha.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("useAlpha", "Use Alpha") toggle VALUE(useAlpha.val);
+
+    { HSTRETCH }
+
+}
+
+octane_objprop_layer.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ octane_objprop_layer.label = PARM_LABEL("Object layer ID", "octane_objprop_layer") WIDTH(1.5);
+ PARM(integer, 1, "octane_objprop_layer", none, none) RANGE(1,999)
+	LOCK_RANGE LABELREF(octane_objprop_layer.label) HSTRETCH;
+
+}
+
+octane_objprop_color.gad = 
+{
+    LAYOUT (horizontal) HSTRETCH
+
+    octane_objprop_color.label = PARM_LABEL("Object layer color", "octane_objprop_color") WIDTH(1.5);
+    PARM(float, 3, "octane_objprop_color", none, COLOR, "R,G,B") 
+	LABELREF(octane_objprop_color.label) HSTRETCH;
+
+}
+
+octane_objprop_baking.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ octane_objprop_baking.label = PARM_LABEL("Object baking group", "octane_objprop_baking") WIDTH(1.5);
+ PARM(integer, 1, "octane_objprop_baking", none, none) RANGE(1,999)
+	LOCK_RANGE LABELREF(octane_objprop_baking.label) HSTRETCH;
+
+}
+
+octane_objprop_generalVis.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ octane_objprop_generalVis.label = PARM_LABEL("General visibility", "octane_objprop_generalVis") WIDTH(1.5);
+ PARM(float, 1, "octane_objprop_generalVis", none, none) RANGE(0,1)
+	LOCK_RANGE LABELREF(octane_objprop_generalVis.label) HSTRETCH;
+
+}
+
+octane_objprop_cameraVis.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("octane_objprop_cameraVis", "Camera visibility") toggle VALUE(octane_objprop_cameraVis.val);
+
+    { HSTRETCH }
+
+}
+
+octane_objprop_shadowVis.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("octane_objprop_shadowVis", "Shadow visibility") toggle VALUE(octane_objprop_shadowVis.val);
+
+    { HSTRETCH }
+
+}
+atten_type.gad = NULL { }
+light_intensity.gad = NULL { }
+use_dcolor.gad = NULL { }
+dcolor.gad = NULL { }
+p.gad = NULL { }
+scale.gad = NULL { }
+dimmer.gad = NULL { }
+light_enable.gad = NULL { }
+shadow_type.gad = NULL { }
+projection.gad = NULL { }
+childcomp.gad = NULL { }
+lookupobjpath.gad = NULL { }
+shop_materialpath.gad = NULL { }
+constraints_on.gad = NULL { }
+constraints_path.gad = NULL { }
+pr.gad = NULL { }
+
+octane_emission1_folder0.gad = 
+{
+    LAYOUT(vertical) HSTRETCH
+
+    TABDIALOG2 "octane_emission1_folder0.gad"
+    { 
+	VALUE(octane_emission1_folder0.gad.val) STRETCH(1,0)
+
+	TAB "Main"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(0.05) SPACING(2p)
+	    switch.gad;		
+	    NT_MAT_DIFFUSE1_diffuse.gad;		
+	    NT_MAT_DIFFUSE1_opacity.gad;		
+	    NT_MAT_DIFFUSE1_smooth.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+
+	TAB "BlackBody Emission"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(0.05) SPACING(2p)
+	    NT_EMIS_BLACKBODY1_efficiency_or_texture.gad;		
+	    blackbody_text_switcher_switch.gad;		
+	    sepparm3.gad;		
+	    NT_EMIS_BLACKBODY1_power.gad;		
+	    NT_EMIS_BLACKBODY1_surfaceBrightness.gad;		
+	    NT_EMIS_BLACKBODY1_temperature.gad;		
+	    NT_EMIS_BLACKBODY1_normalize.gad;		
+	    NT_EMIS_BLACKBODY1_sampling_rate.gad;		
+	    NT_EMIS_BLACKBODY1_illumination.gad;		
+	    NT_EMIS_BLACKBODY1_visibleOnSpecular.gad;		
+	    NT_EMIS_BLACKBODY1_transparentEmission.gad;		
+	    NT_EMIS_BLACKBODY1_castShadows.gad;		
+	    NT_EMIS_BLACKBODY1_doubleSided.gad;		
+	    NT_EMIS_BLACKBODY1_lightPassId.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+
+	TAB "Texture Emission"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(0.05) SPACING(2p)
+	    emission_efficiency_color_A_VALUE.gad;		
+	    emission_text_switcher_switch.gad;		
+	    sepparm2.gad;		
+	    NT_EMIS_TEXTURE1_power.gad;		
+	    NT_EMIS_TEXTURE1_surfaceBrightness.gad;		
+	    NT_EMIS_TEXTURE1_distribution.gad;		
+	    NT_EMIS_TEXTURE1_sampling_rate.gad;		
+	    NT_EMIS_TEXTURE1_illumination.gad;		
+	    NT_EMIS_TEXTURE1_visibleOnSpecular.gad;		
+	    NT_EMIS_TEXTURE1_transparentEmission.gad;		
+	    NT_EMIS_TEXTURE1_castShadows.gad;		
+	    NT_EMIS_TEXTURE1_doubleSided.gad;		
+	    NT_EMIS_TEXTURE1_lightPassId.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+
+	TAB "Distribution-IES Texture"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(0.05) SPACING(2p)
+	    NT_TEX_IMAGE1_A_FILENAME.gad;		
+	    NT_TEX_IMAGE1_power.gad;		
+	    NT_TEX_IMAGE1_gamma.gad;		
+	    NT_TEX_IMAGE1_invert.gad;		
+	    useAlpha.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+
+	TAB "LayerSettings"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(0.05) SPACING(2p)
+	    octane_objprop_layer.gad;		
+	    octane_objprop_color.gad;		
+	    octane_objprop_baking.gad;		
+	    octane_objprop_generalVis.gad;		
+	    octane_objprop_cameraVis.gad;		
+	    octane_objprop_shadowVis.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+    } 
+}
+
+folder1_2.gad = 
+{
+    LAYOUT(vertical) HSTRETCH
+
+    TABDIALOG2 "folder1_2.gad"
+    { 
+	VALUE(folder1_2.gad.val) STRETCH(1,0)
+
+	TAB "Viewing Options"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(2p) SPACING(2p)
+	    tdisplay.row.join;		
+	    l_iconscale.gad;		
+	    caching.gad;		
+	    picking.gad;		
+	    pickscript.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+
+	TAB "Lookat Options"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(2p) SPACING(2p)
+	    lookatpath.gad;		
+	    lookup.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+
+	TAB "Path Options"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(2p) SPACING(2p)
+	    pathobjpath.gad;		
+	    roll.gad;		
+	    pos.gad;		
+	    uparmtype.gad;		
+	    pathorient.gad;		
+	    up.gad;		
+	    bank.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+    } 
+}
+
+folder0.gad = 
+{
+    LAYOUT(vertical) HSTRETCH
+
+    TABDIALOG2 "folder0.gad"
+    { 
+	VALUE(folder0.gad.val) STRETCH(1,0)
+
+	TAB "Transform"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(0.05) SPACING(2p)
+	    keeppos.row.join;		
+	    xOrd.row.join;		
+	    t.gad;		
+	    r.gad;		
+	    s.gad;		
+	    folder1_2.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+
+	TAB "Light"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(0.05) SPACING(2p)
+	    light_enabled.gad;		
+	    ogl_enablelight.gad;		
+	    light_type.gad;		
+	    sepparm.gad;		
+	    grid1_orient.gad;		
+	    divisions.gad;		
+	    sphere1_rows.gad;		
+	    sphere1_cols.gad;		
+	    torus1_rad.gad;		
+	    torus1_rows.gad;		
+	    torus1_cols.gad;		
+	    tube1_orient.gad;		
+	    tube1_cap.gad;		
+	    tube1_radscale.gad;		
+	    tube1_height.gad;		
+	    tube1_rows.gad;		
+	    tube1_cols.gad;		
+	    spot_lamp.gad;		
+	    spot_output.gad;		
+	    spotlight_tube_height.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+
+	TAB "Shader"
+	{
+	    LAYOUT(vertical) STRETCH
+
+	    MARGIN(0.05) SPACING(2p)
+	    octane_emission1_folder0.gad;		
+
+	    { STRETCH(1,1) LOOK(plain) }
+	}
+    } 
+}
+
+dialog_norm.gad = 
+{
+    LAYOUT(vertical) SPACING(0.02) HSTRETCH LOOK(plain) 
+    folder0.gad; 
+    projection.gad; 
+    childcomp.gad; 
+    lookupobjpath.gad; 
+    shop_materialpath.gad; 
+    constraints_on.gad; 
+    constraints_path.gad; 
+    pr.gad; 
+} 
+// dialog.bot.ui
+
+extrastuffstowbar_minimize.val := 1;
+
+dialog = OPENNOTIFIER
+{
+    LAYOUT(vertical) SPACING(0.02) LOOK(bg) VALUE(open.val) HSTRETCH
+
+    { HEIGHT(1p) LOOK(bg) HSTRETCH }
+
+    dialog_norm.gad;
+}

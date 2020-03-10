@@ -1,0 +1,63 @@
+// Magic: b94ab616
+// Automatically generated PSI dialog (PSI version 18.0.287)
+// Fri Jan 10 12:44:23 2020
+
+
+f_tmp = FLOAT_FIELD;	// dialog.top.ui
+
+placement_mode.gad = 
+{
+    LAYOUT(horizontal) JUSTIFY(left, center) 
+
+    PARM_LABEL_SIMPLE("Placement Mode", "placement_mode") ;
+    { WIDTH(0.1) }
+
+    placement_mode.buttonstrip;
+
+    {  }
+
+}
+keep_orientation.row.join =		
+{
+  LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+
+keep_orientation.gad = ROW
+{
+    
+
+    PARM_BUTTON("keep_orientation", "Keep orientation") toggle VALUE(keep_orientation.val);
+
+    {  }
+
+}
+
+keep_brightness.gad = ROW
+{
+    
+
+    PARM_BUTTON("keep_brightness", "Keep brightness") toggle VALUE(keep_brightness.val);
+
+    {  }
+
+}
+}	// Template join.bot
+
+
+# warning cpp warning: "GenV3/subdialog.top.ui":12 Macro "PARMSPACING" redefined.  Using later definition
+# warning cpp warning: "GenV3/subdialog.top.ui":13 Macro "LAYOUTDIR" redefined.  Using later definition
+# warning cpp warning: "GenV3/subdialog.top.ui":14 Macro "LOOK_PLAIN" redefined.  Using later definition
+# warning cpp warning: "GenV3/subdialog.top.ui":15 Macro "DO_JUSTIFY" redefined.  Using later definition
+dialog_norm.gad = 
+{
+    LAYOUT(horizontal) SPACING(0.05) HSTRETCH  JUSTIFY(left, center)
+    placement_mode.gad; 
+    keep_orientation.row.join; 
+} 
+// dialog.bot.ui
+
+dialog = OPENNOTIFIER
+{
+    LAYOUT(vertical) VALUE(open.val) HSTRETCH
+
+    dialog_norm.gad;
+}

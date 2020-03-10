@@ -1,0 +1,30 @@
+// Magic: fd4a40bd
+// Automatically generated PSI dialog (PSI version 18.0.348)
+// Fri Feb 14 17:05:06 2020
+
+
+f_tmp = FLOAT_FIELD;	// dialog.top.ui
+
+dimmer.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ dimmer.label = PARM_LABEL("Dimmer", "dimmer");
+ PARM(float, 1, "dimmer", none, field) RANGE(0,1)
+	 LABELREF(dimmer.label) HSTRETCH;
+
+}
+
+dialog_norm.gad = 
+{
+    LAYOUT(horizontal) SPACING(0.05) HSTRETCH  JUSTIFY(left, center)
+    dimmer.gad; 
+} 
+// dialog.bot.ui
+
+dialog = OPENNOTIFIER
+{
+    LAYOUT(vertical) VALUE(open.val) HSTRETCH
+
+    dialog_norm.gad;
+}

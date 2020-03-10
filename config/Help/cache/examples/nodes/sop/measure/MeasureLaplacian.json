@@ -1,0 +1,1 @@
+{"body": [{"indent": 0, "type": "title", "text": ["MeasureLaplacian"]}, {"indent": 0, "type": "para", "extent": [0, 90], "text": ["This example demonstrates how to measure the Laplacian to smooth or sharpen an attribute."]}], "examplefile": "/examples/nodes/sop/measure/MeasureLaplacian.hda", "type": "root", "attrs": {"type": "example"}, "examplefor": "/nodes/sop/measure"}

@@ -1,0 +1,141 @@
+h.pane.wsheet.disconnect_inputs	"Disconnect Inputs"	"Disconnect inputs from selected nodes"	 Alt+I
+HCONTEXT	h.pane.gview.state.lop.stagemanager	"stagemanager Operation"	"These keys apply to the stagemanager operation."
+h.pane.gview.state.lop.stagemanager.debug_msg	"Debug messages"	"Enable debug messages"	 7
+HCONTEXT	h.pane.gview.state.sop.sidefx_bend_demo	"sidefx_bend_demo Operation"	"These keys apply to the sidefx_bend_demo operation."
+h.pane.gview.state.sop.sidefx_bend_demo.taper	Tapering	"Modulate taper parameter with mouse wheel"	 4
+h.pane.gview.state.lop.stagemanager.duplicate	Duplicate	Duplicate	 Ctrl+D
+h.pane.gview.state.lop.stagemanager.cut	Cut	Move	 Ctrl+X
+HCONTEXT	h.pane.gview.state.sop.sidefx_bend	"sidefx_bend Operation"	"These keys apply to the sidefx_bend operation."
+h.pane.gview.state.sop.sidefx_bend.toggle_capture	"Toggle Capture Handle"	"Toggle Capture Handle"	 G
+h.pane.gview.state.lop.stagemanager.del_keyframe	"Remove Keyframe"	"Remove Keyframe"	 Ctrl+Shift+K
+h.pane.gview.state.sop.sidefx_bend_demo.bend	Bending	"Modulate bend parameter with mouse wheel"	 1
+h.pane.gview.state.lop.stagemanager.transform	transform	transform	 2
+HCONTEXT	h.pane.gview.state.sop.sidefx_rbdpaintstroke	"sidefx_rbdpaintstroke Operation"	"These keys apply to the sidefx_rbdpaintstroke operation."
+h.pane.gview.state.sop.sidefx_rbdpaintstroke.set_wireframe_brush	"Set wireframe brush"	"Set wireframe brush"	 2
+h.pane.gview.state.sop.sidefx_bend_demo.length	"Length Scaling"	"Modulate length scale parameter with mouse wheel"	 3
+HCONTEXT	h.pane.gview.state.sop.sidefx_autoflexlines	"sidefx_autoflexlines Operation"	"These keys apply to the sidefx_autoflexlines operation."
+h.pane.gview.state.sop.sidefx_autoflexlines.draw_action	"Draw Action"	"Draw Action"	 N
+HCONTEXT	h.pane.gview.state.sop.sidefx_muscleflex	"sidefx_muscleflex Operation"	"These keys apply to the sidefx_muscleflex operation."
+h.pane.gview.state.sop.sidefx_muscleflex.set_keys	"Key All Muscle Tension Channels"	"Key All Muscle Tension"	 Ctrl+K
+h.pane.wsheet.opmenu.select_inputs	"Select Inputs"	"Select all input nodes of the selected node"	 Shift+Cmd+I
+HCONTEXT	h.pane.gview.state.sop.sidefx_lopfollowpathconstraint	"sidefx_lopfollowpathconstraint Operation"	"These keys apply to the sidefx_lopfollowpathconstraint operation."
+h.pane.gview.state.sop.sidefx_lopfollowpathconstraint.toggle_hud	"Toggle Hud Sliders"	"Toggle Hud Sliders"	 H
+h.pane.gview.state.lop.stagemanager.log_state	"Log state"	"Log state attributes"	 8
+HCONTEXT	h.pane.gview.state.sop.sidefx_rbdconstraintsfromlines	"sidefx_rbdconstraintsfromlines Operation"	"These keys apply to the sidefx_rbdconstraintsfromlines operation."
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromlines.toggle_tweak	"Toggle Transform Handle"	"Toggle Transform Handle"	 2
+h.pane.gview.state.sop.sidefx_autoflexlines.log_state	"Log state"	"Log state attributes"	 8
+h.pane.gview.state.sop.sidefx_bend.toggle_deform	"Toggle Deform Handle"	"Toggle Deform Handle"	 H
+HCONTEXT	h.pane.gview.state.sop.sidefx_attribpaint	"sidefx_attribpaint Operation"	"These keys apply to the sidefx_attribpaint operation."
+h.pane.gview.state.sop.sidefx_attribpaint.brushshape_fill	Fill	Fill	 4
+h.pane.wsheet.home_selected	"Home Selected"	"Home selected OP tiles"	 F
+HCONTEXT	h.pane.gview.state.sop.sidefx_lopsurfaceconstraint	"sidefx_lopsurfaceconstraint Operation"	"These keys apply to the sidefx_lopsurfaceconstraint operation."
+h.pane.gview.state.sop.sidefx_lopsurfaceconstraint.toggle_hud	"Toggle Hud Sliders"	"Toggle Hud Sliders"	 H
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromlines.toggle_enable	"Toggle Enable Line"	"Toggle Enable Line"	 3
+h.pane.gview.state.lop.stagemanager.centroid	centroid	centroid	 1
+h.pane.gview.state.lop.stagemanager.key_scales	"Keyframe Scales"	"Keyframe Scales"	 Shift+E
+h.pane.gview.state.sop.sidefx_autoflexlines.trace	"Trace callbacks"	"Enable trace for callbacks"	 6
+HCONTEXT	h.pane.gview.state.lop.sidefx_lop_edit	"LOP Edit State"	"These keys apply to the LOP Edit State."
+h.pane.gview.state.lop.sidefx_lop_edit.drawsimguide	"Draw Simulation Geometry"	"Draws the internal simulation geometry as a wireframe guide"	 Shift+G
+h.pane.gview.state.lop.stagemanager.set_keyframe	"Set Keyframe"	"Set Keyframe"	 Ctrl+K
+h.pane.gview.state.lop.stagemanager.key_translates	"Keyframe Translates"	"Keyframe Translates"	 Shift+T
+h.pane.prevtab	"Previous Tab"	"Previous pane tab"	 Cmd+PageUp Cmd+{
+h.pane.gview.state.lop.stagemanager.edit_variant	"Edit Variant"	"Edit Variant"	 Ctrl+E
+h.pane.gview.state.sop.sidefx_rbdpaintstroke.reload_state	"Reload state"	"Reload state"	 9
+h.pane.gview.state.lop.stagemanager.paste	Paste	Paste	 Ctrl+V
+HCONTEXT	h.pane.gview.state.sop.sidefx_loplookatconstraint	"sidefx_loplookatconstraint Operation"	"These keys apply to the sidefx_loplookatconstraint operation."
+h.pane.gview.state.sop.sidefx_loplookatconstraint.toggle_hud	"Toggle Hud Sliders"	"Toggle Hud Sliders"	 H
+h.pane.gview.state.lop.stagemanager.copy	Copy	Copy	 Ctrl+C
+h.pane.gview.state.sop.sidefx_rbdpaintstroke.realtime_mode	realtime	"Enable realtime mode"	 0
+HCONTEXT	h.pane.gview.state.sop.sidefx_rbdconstraintsfromrules	"sidefx_rbdconstraintsfromrules Operation"	"These keys apply to the sidefx_rbdconstraintsfromrules operation."
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromrules.toggle_edit	"Toggle Hinge Edits"	"Toggle Hinge Edits"	 4
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromrules.show_hinge_edit	"Toggle Transform Handle"	"Toggle Transform Handle"	 2
+HCONTEXT	h.pane.gview.state.sop.sidefx_groupbylasso	"sidefx_groupbylasso Operation"	"These keys apply to the sidefx_groupbylasso operation."
+h.pane.gview.state.sop.sidefx_groupbylasso.realtime_mode	realtime	"Enable realtime mode"	 0
+h.pane.gview.state.sop.sidefx_bend.toggle_bbox	"Toggle Capture Bounds Visibility"	"Toggle Capture Bounds Visibility"	 F
+h.pane.gview.state.sop.sidefx_attribpaint.brushshape_surface	"Surface Brush"	"Surface Brush"	 2
+h.pane.gview.state.sop.sidefx_attribpaint.realtime_mode	realtime	"Enable realtime mode"	 0
+HCONTEXT	h.pane.gview.state.sop.sidefx_loppointsconstraint	"sidefx_loppointsconstraint Operation"	"These keys apply to the sidefx_loppointsconstraint operation."
+h.pane.gview.state.sop.sidefx_loppointsconstraint.toggle_hud	"Toggle Hud Sliders"	"Toggle Hud Sliders"	 H
+h.pane.gview.state.sop.sidefx_autoflexlines.edit_action	"Edit Action"	"Edit Action"	 M
+HCONTEXT	h.pane.gview.state.sop.state_muscleid	"state_muscleid Operation"	"These keys apply to the state_muscleid operation."
+h.pane.gview.state.sop.state_muscleid.resetallkey	"Reset All MuscleIDs"	"Reset All MuscleIDs"	 0
+h.pane.gview.state.sop.rbdbulletsolverh1	"view geo"	"view geo"	 1
+h.pane.wsheet.right	"Set Current Right"	"Set Current right"	 Shift+PageDown . End
+h.pane.wsheet.left	"Set Current Left"	"Set Current left"	 Shift+PageUp , Home
+h.audio_panel	"Audio Panel"	"Open audio panel"	
+h.open	Open	"Open a new file"	 Cmd+O
+h.pane.gview.state.sop.sidefx_bend.rotate_capture	"Cycle Capture Axis"	"Cycle Capture Axis"	 B
+HCONTEXT	h.pane.gview.state.sop.sidefx_stroke	"sidefx_stroke Operation"	"These keys apply to the sidefx_stroke operation."
+h.pane.gview.state.sop.sidefx_stroke.set_viewport_brush	"Set viewport brush"	"Set viewport brush"	 3
+HCONTEXT	h.pane.gview.state.sop.sidefx_pointweld	"Point Weld Operation"	"These keys apply to the Point Weld state operation."
+h.pane.gview.state.sop.sidefx_pointweld.midpoint	Midpoint	"Sets points to be welded to the midpoint of the target point and the average position of the points to weld."	 A
+h.pane.gview.state.lop.stagemanager.group	Group	Group	 Ctrl+G
+h.pane.gview.state.sop.state_muscleid.resetkey	"Reset Selected MuscleID"	"Reset Selected MuscleID"	 -
+h.pane.gview.state.sop.sidefx_rbdpaintstroke.log_state	"Log state"	"Log state attributes"	 8
+inputfield.prev_word	"Previous Word"	"Previous Word"	 Alt+LeftArrow
+h.pane.wsheet.flag3_mode	"Set Third Flag"	"Hold this key and select a node to toggle a third flag value"	
+HCONTEXT	h.pane.gview.state.sop.sidefx_rbdconstraintsfromcurves	"sidefx_rbdconstraintsfromcurves Operation"	"These keys apply to the sidefx_rbdconstraintsfromcurves operation."
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromcurves.toggle_draw	"Toggle Curve/Hinge Mode"	"Toggle Curve/Hinge Mode"	 1
+inputfield.end	End	End	 End Ctrl+E
+h.pane.gview.state.sop.rbdbulletsolverh5	"toggle inspector"	"toggle inspector"	 5
+h.pane.gview.state.sop.rbdbulletsolverh2	"view constraints"	"view constraints"	 2
+inputfield.select_all	"Select All"	"Select all"	 Cmd+A
+h.pane.gview.state.sop.sidefx_autoflexlines.setup_mode	"Setup AutoFlex"	"Setup AutoFlex"	 L
+h.pane.gview.state.sop.sidefx_bend_demo.twist	Twisting	"Modulate twist parameter with mouse wheel"	 2
+h.pane.gview.state.sop.sidefx_attribpaint.brushshape_screen	"Screen Brush"	"Screen Brush"	 3
+h.pane.gview.state.sop.sidefx_rbdpaintstroke.cycle_brushes	"Cycle brushes"	"Cycle stroke tools"	 1
+h.pane.wsheet.flag2_mode	"Set Secondary Flag"	"Hold this key and select a node to toggle the secondary flag value"	
+h.pane.wsheet.flag4_mode	"Set Fourth Flag"	"Hold this key and select a node to toggle a fourth flag value"	
+h.pane.wsheet.opmenu.select_outputs	"Select Outputs"	"Select all output nodes of the selected node"	 Shift+Cmd+O
+h.pane.wsheet.flag1_mode	"Set Primary Flag"	"Hold this key and select a node to toggle the primary flag value"	
+h.pane.parms.copy_parm	"Copy Parameter"	"Copy parameter"	 Shift+Cmd+C
+inputfield.home	Home	Home	 Home Ctrl+A
+h.pane.gview.state.sop.sidefx_autoflexlines.delete_action	"Delete Action"	"Delete Action"	 Del
+h.pane.gview.state.lop.sidefx_lop_edit.physics	"Use Physics"	"Collide moving primitives against the rest of the Scene"	 Shift+P
+h.pane.gview.state.lop.stagemanager.reset_pivot	"Reset Pivot"	"Reset Pivot"	 Ctrl+P
+h.pane.gview.state.lop.stagemanager.clear_info	"Clear Info Text"	"Clear Info Text"	 3
+h.pane.gview.state.sop.sidefx_rbdpaintstroke.trace	"Trace callbacks"	"Enable trace for callbacks"	 6
+h.pane.gview.state.sop.sidefx_rbdpaintstroke.debug_msg	"Debug messages"	"Enable debug messages"	 7
+h.pane.gview.state.sop.sidefx_bend.fit_capture	"Fit Capture Region To Selection"	"Fit Capture Region To Selection"	 N
+h.pane.textport.top	Home	Home	 Home Ctrl+A
+h.pane.gview.state.sop.sidefx_bend.reverse_capture	"Reverse Capture Region"	"Reverse Capture Region"	 M
+h.pane.textport.bottom	End	End	 End Ctrl+E
+h.pane.gview.state.sop.sidefx_rbdpaintstroke.set_viewport_brush	"Set viewport brush"	"Set viewport brush"	 3
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromlines.toggle_draw	"Toggle Curve/Hinge Mode"	"Toggle Curve/Hinge Mode"	 1
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromrules.show_bbox_handle	"Toggle BBox Handle"	"Toggle BBox Handle"	 3
+h.pane.gview.state.sop.rbdbulletsolverh4	"toggle view"	"toggle view"	 4
+h.pane.gview.state.lop.stagemanager.reload_state	"Reload state"	"Reload state"	 9
+h.pane.gview.state.sop.sidefx_muscleflex.set_zero	"Zero All Muscle Tension Channels"	"Zero All Muscle Tension"	 0
+h.pane.wsheet.scope_chans	"Add to Channel List"	"Add to Channel List"	
+h.pane.wsheet.disconnect_outputs	"Disconnect Outputs"	"Disconnect outputs from selected nodes"	 Alt+O
+h.pane.gview.state.sop.sidefx_autoflexlines.reload_state	"Reload state"	"Reload state"	 9
+h.pane.wsheet.jump	"Jump Down"	"Jump down to child network"	 I
+h.pane.gview.state.sop.state_muscleid.renamekey	"Set MuscleID"	"Set MuscleID"	 =
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromcurves.toggle_tweak	"Toggle Transform Handle"	"Toggle Transform Handle"	 2
+h.pane.gview.state.sop.sidefx_stroke.cycle_brushes	"Cycle brushes"	"Cycle stroke tools"	 1
+h.pane.gview.state.lop.stagemanager.key_rotates	"Keyframe Rotates"	"Keyframe Rotates"	 Shift+R
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromcurves.toggle_enable	"Toggle Enable Curve"	"Toggle Enable Curve"	 3
+h.pane.gview.state.lop.stagemanager.delete	Delete	Delete	 Del
+HCONTEXT	h.pane.gview.state.sop.sidefx_heightfield_drawmask	"sidefx_heightfield_drawmask Operation"	"These keys apply to the sidefx_heightfield_drawmask operation."
+h.pane.gview.state.sop.sidefx_heightfield_drawmask.realtime_mode	realtime	"Enable realtime mode"	 0
+h.pane.wsheet.opmenu.preview	"Preview Window"	"Open a preview of the selected node"	 Cmd+P
+h.pane.gview.state.sop.sidefx_attribpaint.brushshape_sphere	"Volume Brush"	"Volume Brush"	 1
+h.pane.nexttab	"Next Tab"	"Next pane tab"	 Cmd+}
+h.pane.gview.state.sop.sidefx_bend_demo.squish	Squishing	"Modulate squish parameter with mouse wheel"	 5
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromlines.toggle_edit	"Toggle Hinge Edits"	"Toggle Hinge Edits"	 4
+h.pane.gview.state.sop.sidefx_muscleflex.autoflex_hk	"Set AutoFlex Line for Selection"	"Sets current muscle selection to AutoFlex"	 L
+h.pane.gview.state.lop.stagemanager.trace	"Trace callbacks"	"Enable trace for callbacks"	 6
+h.pane.gview.state.sop.sidefx_attribpaint.brushshape_nearest	"Nearest Point"	"Nearest Point"	 5
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromcurves.toggle_edit	"Toggle Hinge Edits"	"Toggle Hinge Edits"	 4
+h.pane.gview.state.sop.sidefx_stroke.set_wireframe_brush	"Set wireframe brush"	"Set wireframe brush"	 2
+h.pane.wsheet.add_op	"Add Operator"	"Add Operator"	 Tab
+h.pane.parms.paste_rel_refs	"Paste Copied Relative Refs"	"Paste copied relative refs"	 Cmd+R Shift+Cmd+V
+h.pane.gview.state.sop.rbdbulletsolverh3	"view proxy"	"view proxy"	 3
+h.pane.gview.state.sop.sidefx_pointweld.collapse	"Collapse Points"	"Collapses the selected points to their average position."	 Z
+inputfield.next_word	"Next Word"	"Next Word"	 Alt+RightArrow
+h.pane.wsheet.reconnect_around	"Reconnect Around Selected"	"Disconnect selected node inputs and outputs and reconnect input nodes directly to output nodes"	 Ctrl+R
+h.pane.gview.state.sop.sidefx_autoflexlines.debug_msg	"Debug messages"	"Enable debug messages"	 7
+h.pane.gview.state.sop.sidefx_rbdconstraintsfromrules.toggle	"Toggle Handles"	"Toggle Handles"	 Z
+h.pane.gview.state.sop.sidefx_stroke.realtime_mode	realtime	"Enable realtime mode"	 0
+h.pane.wsheet.opmenu.generate_node	"Generate Node"	"Custom Menu Operation: Generate Node"	 G
+h.pane.wsheet.rename_node	"Rename Node"	"Edit the name of the current node"	 F2 Enter

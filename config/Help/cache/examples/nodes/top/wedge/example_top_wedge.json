@@ -1,0 +1,1 @@
+{"body": [{"indent": 0, "type": "title", "text": ["example_top_wedge"]}, {"indent": 0, "type": "para", "extent": [0, 66], "text": ["This example demonstrates how to use the wedge node in PDG/TOPs."]}], "examplefile": "/examples/nodes/top/wedge/example_top_wedge.hda", "type": "root", "attrs": {"type": "example"}, "examplefor": "/nodes/top/wedge"}

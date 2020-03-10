@@ -1,0 +1,107 @@
+// Magic: 73fea570
+// Automatically generated PSI dialog (PSI version 18.0.348)
+// Fri Feb 21 18:07:26 2020
+
+
+f_tmp = FLOAT_FIELD;	// dialog.top.ui
+addpt.join =		
+{
+  LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+
+addpt.gad = ROW
+{
+    JUSTIFY(left, center)
+
+    PARM_BUTTON("addpt", "Add Point")
+	push VALUE(addpt.val);
+
+}
+
+coord.gad = 
+{
+ LAYOUT(vertical) STRETCH(1,0)
+
+ PARM_LABEL_SIMPLE("Coordinates", "coord");
+
+ {
+    LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+
+    PARM_FIELD (string, "coord") VALUE(coord.val) HSTRETCH;
+
+ }
+}
+}	
+del.join =		
+{
+  LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+
+del.gad = ROW
+{
+    JUSTIFY(left, center)
+
+    PARM_BUTTON("del", "Delete Last Point")
+	push VALUE(del.val);
+
+}
+
+delall.gad = ROW
+{
+    JUSTIFY(left, center)
+
+    {  }
+    { WIDTH(0.1) }
+
+    PARM_BUTTON("delall", "Delete All Points")
+	push VALUE(delall.val);
+
+}
+}	
+convertrefs.join =		
+{
+  LAYOUT(horizontal) HSTRETCH JUSTIFY(left, center)
+
+convertrefs.gad = ROW
+{
+    JUSTIFY(left, center)
+
+    PARM_BUTTON("convertrefs", "Convert Reference Points")
+	push VALUE(convertrefs.val);
+
+}
+
+convertrels.gad = ROW
+{
+    JUSTIFY(left, center)
+
+    {  }
+    { WIDTH(0.1) }
+
+    PARM_BUTTON("convertrels", "Convert Relative Points")
+	push VALUE(convertrels.val);
+
+}
+}	
+
+# warning cpp warning: "GenV3/subdialog.top.ui":5 Macro "PARMSPACING" redefined.  Using later definition
+# warning cpp warning: "GenV3/subdialog.top.ui":6 Macro "LAYOUTDIR" redefined.  Using later definition
+# warning cpp warning: "GenV3/subdialog.top.ui":7 Macro "LOOK_PLAIN" redefined.  Using later definition
+# warning cpp warning: "GenV3/subdialog.top.ui":8 Macro "DO_JUSTIFY" redefined.  Using later definition
+dialog_norm.gad = 
+{
+    LAYOUT(vertical) SPACING(0.02) HSTRETCH LOOK(plain) 
+    addpt.join; 
+    del.join; 
+    convertrefs.join; 
+} 
+// dialog.bot.ui
+
+extrastuffstowbar_minimize.val := 1;
+
+dialog = OPENNOTIFIER
+{
+    LAYOUT(vertical) SPACING(0.02) LOOK(bg) VALUE(open.val) HSTRETCH
+
+    { HEIGHT(1p) LOOK(bg) HSTRETCH }
+
+    dialog_norm.gad;
+}

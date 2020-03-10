@@ -1,0 +1,257 @@
+// Magic: e03c664c
+// Automatically generated PSI dialog (PSI version 18.0.348)
+// Fri Feb  7 15:40:44 2020
+
+
+f_tmp = FLOAT_FIELD;	// dialog.top.ui
+
+use_degrees.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("use_degrees", "Azimuth / Elevation") toggle VALUE(use_degrees.val);
+
+    { HSTRETCH }
+
+    use_degrees.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(use_degrees.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+azimuth.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ azimuth.label = PARM_LABEL("Azimuth", "azimuth") WIDTH(1.5);
+ PARM(float, 1, "azimuth", none, none) RANGE(-360,360)
+	 LABELREF(azimuth.label) HSTRETCH;
+
+    azimuth.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(azimuth.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+elevation.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ elevation.label = PARM_LABEL("Elevation", "elevation") WIDTH(1.5);
+ PARM(float, 1, "elevation", none, none) RANGE(-180,180)
+	 LABELREF(elevation.label) HSTRETCH;
+
+    elevation.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(elevation.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+sun_direction.gad = ROW
+{
+   HSTRETCH
+
+   sun_direction.label = PARM_LABEL("Sun Direction", "sun_direction") WIDTH(1.5);
+   PARM(float, 3, "sun_direction", none, none, "X,Y,Z")
+	RANGE(0,1)  LABELREF(sun_direction.label)
+	HSTRETCH;
+
+    sun_direction.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(sun_direction.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+enable_sun.gad = ROW
+{
+    HSTRETCH
+
+    { WIDTH(1.5) }
+    { WIDTH(0.08) }
+
+    PARM_BUTTON("enable_sun", "Enable Sun") toggle VALUE(enable_sun.val);
+
+    { HSTRETCH }
+
+    enable_sun.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(enable_sun.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+sun_size.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ sun_size.label = PARM_LABEL("Sun Size", "sun_size") WIDTH(1.5);
+ PARM(float, 1, "sun_size", none, none) RANGE(0,1)
+	 LABELREF(sun_size.label) HSTRETCH;
+
+    sun_size.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(sun_size.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+sun_tint.gad = 
+{
+    LAYOUT (horizontal) HSTRETCH
+
+    sun_tint.label = PARM_LABEL("Sun Tint", "sun_tint") WIDTH(1.5);
+    PARM(float, 3, "sun_tint", none, COLOR, "R,G,B") 
+	LABELREF(sun_tint.label) HSTRETCH;
+
+    sun_tint.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(sun_tint.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+sky_tint.gad = 
+{
+    LAYOUT (horizontal) HSTRETCH
+
+    sky_tint.label = PARM_LABEL("Sky Tint", "sky_tint") WIDTH(1.5);
+    PARM(float, 3, "sky_tint", none, COLOR, "R,G,B") 
+	LABELREF(sky_tint.label) HSTRETCH;
+
+    sky_tint.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(sky_tint.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+ground_albedo.gad = 
+{
+    LAYOUT (horizontal) HSTRETCH
+
+    ground_albedo.label = PARM_LABEL("Ground Albedo", "ground_albedo") WIDTH(1.5);
+    PARM(float, 3, "ground_albedo", none, COLOR, "R,G,B") 
+	LABELREF(ground_albedo.label) HSTRETCH;
+
+    ground_albedo.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(ground_albedo.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+intensity.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ intensity.label = PARM_LABEL("Intensity", "intensity") WIDTH(1.5);
+ PARM(float, 1, "intensity", none, none) RANGE(0.10000000149011612,10)
+	 LABELREF(intensity.label) HSTRETCH;
+
+    intensity.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(intensity.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+turbidity.gad = 
+{
+ LAYOUT(horizontal) HSTRETCH
+
+ turbidity.label = PARM_LABEL("Turbidity", "turbidity") WIDTH(1.5);
+ PARM(float, 1, "turbidity", none, none) RANGE(1,10)
+	LOCK_RANGE_MIN LABELREF(turbidity.label) HSTRETCH;
+
+    turbidity.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(turbidity.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+X.gad = ROW
+{
+   HSTRETCH
+
+   X.label = PARM_LABEL("X Axis", "X") WIDTH(1.5);
+   PARM(float, 3, "X", none, none, "X,Y,Z")
+	RANGE(0,1)  LABELREF(X.label)
+	HSTRETCH;
+
+    X.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(X.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+Y.gad = ROW
+{
+   HSTRETCH
+
+   Y.label = PARM_LABEL("Y Axis", "Y") WIDTH(1.5);
+   PARM(float, 3, "Y", none, none, "X,Y,Z")
+	RANGE(0,1)  LABELREF(Y.label)
+	HSTRETCH;
+
+    Y.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(Y.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+Z.gad = ROW
+{
+   HSTRETCH
+
+   Z.label = PARM_LABEL("Z Axis", "Z") WIDTH(1.5);
+   PARM(float, 3, "Z", none, none, "X,Y,Z")
+	RANGE(0,1)  LABELREF(Z.label)
+	HSTRETCH;
+
+    Z.exportbtn = PARM_EXPORTBUTTON "SOP_sphere"
+	VALUE(Z.export) LOOKFLAT
+	HELP("Open Shader Effects menu (Ctrl+LMB to promote this parameter)")
+	UI_FLAT_ICON_BTN_SIZE_SMALL;
+
+}
+
+dialog_norm.gad = 
+{
+    LAYOUT(vertical) SPACING(0.02) HSTRETCH LOOK(plain) 
+    use_degrees.gad; 
+    azimuth.gad; 
+    elevation.gad; 
+    sun_direction.gad; 
+    enable_sun.gad; 
+    sun_size.gad; 
+    sun_tint.gad; 
+    sky_tint.gad; 
+    ground_albedo.gad; 
+    intensity.gad; 
+    turbidity.gad; 
+    X.gad; 
+    Y.gad; 
+    Z.gad; 
+} 
+// dialog.bot.ui
+
+extrastuffstowbar_minimize.val := 1;
+
+dialog = OPENNOTIFIER
+{
+    LAYOUT(vertical) SPACING(0.02) LOOK(bg) VALUE(open.val) HSTRETCH
+
+    { HEIGHT(1p) LOOK(bg) HSTRETCH }
+
+    dialog_norm.gad;
+}
