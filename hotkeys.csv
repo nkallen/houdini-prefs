@@ -1,10 +1,6 @@
 Key Name,Selection,OBJECT,SOP,VOP,DOP,COP,CHOP,SHOP,ROP,TOP,LOP
-Ctrl+P,line,,"mn:[
-('Direction x', 'fn:hou.selectedNodes()[0].setParms({""dirx"": 1, ""diry"": 0, ""dirz"": 0})', 'x'),
-('Direction y', 'fn:hou.selectedNodes()[0].setParms({""dirx"": 0, ""diry"": 1, ""dirz"": 0})', 'y'),
-('Direction z', 'fn:hou.selectedNodes()[0].setParms({""dirx"": 0, ""diry"": 0, ""dirz"": 1})', 'z')]",,,,,,,,
-A,,,op:add,,,,,,,,
-B,,,"mn:[('Bound', 'op:bound', 'o'), 'Box', 'op:box, 'x')]",,,,,,,,
+A,,,"mn:[('Add', 'op:add', 'd'), ('Attribute Wrangle', 'op:attribwrangle', 'w')]",,,,,,,,
+B,,,"mn:[('Bound', 'op:bound', 'o'), ('Box', 'op:box', 'x'), ('Bend', 'op:bend', 'e')]",,,,,,,,
 C,,,"mn:[
 ('Copy to points', 'op:copytopoints', 'o'),
 ('Carve', 'op:carve', 'a'),
@@ -24,10 +20,10 @@ M,,,"mn:[
 N,,,op:null,,,,,,,,
 O,+,,fn:objectMergeFromSelection(uievent),,,,,,,,
 O,,,op:object_merge,,,,,,,,
-P,,,,,,,,,,,
+P,,,op:polywire,,,,,,,,
 Q,,,op:sort,,,,,,,,
 R,,,op:resample,,,,,,,,
-S,,,op:switch,,,,,,,,
+S,,,"mn:[('Switch', 'op:switch', 'w'), ('Skin', 'op:skin', 'k')]",,,,,,,,
 T,,,op:xform,,,,,,,,
 U,,,,,,,,,,,
 V,,,,,,,,,,,

@@ -32,6 +32,11 @@ this.fs_watcher.fileChanged.connect(__load_actions)
 
 
 def invoke_action_from_key(uievent):
+    # Some normal keys that we override are volatile, like 'A'; these come as keydown/keyup rather
+    # than keyhit. We only process the 'keydown' and ignore the up event to prevent doubling.
+    if uievent.eventtype != 'keyhit' and uievent.eventtype != 'keydown':
+        return None, False
+
     editor = uievent.editor
 
     context = editor.pwd().childTypeCategory().name()
