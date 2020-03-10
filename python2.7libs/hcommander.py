@@ -11,8 +11,13 @@ Commander is a "graphical" command line interface for Houdini's Network Editor. 
 quickly run commands or edit nodes using only the keyboard.
 
 The commander can be triggered in two ways. First, hitting Shift+Space, which works like
-Spotlight on Mac. Alternatively, it opens only Space is held down, and closes, accepting
-the user's selection, when space is lifted. This is referred to as "volatile"
+Spotlight on Mac, opening a dialog. Alternatively, it holding space down, the dialog opens;
+and releasing the space key closes it, accepting the user's selection. This is
+referred to as "volatile" mode.
+
+Commands can be global: e.g., "turn on normals in the scene view". They can be specific
+to the selection "orient the currently selected line node along X/Y/Z". Or they can just
+edit parameters directly.
 """
 
 """
