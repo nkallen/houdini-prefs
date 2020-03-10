@@ -26,10 +26,6 @@ def __load_actions():
                     __actions[context][row["Key Name"]].append((row["Selection"], row[context]))
 __load_actions()
 
-# If this module is reloaded, destroy old fs_watcher so that there aren't multiple watchers.
-if hasattr(this, 'fs_watcher'):
-    this.fs_watcher.setParent(None)
-
 this.fs_watcher = QtCore.QFileSystemWatcher()
 this.fs_watcher.addPath(__hotkeysfile)
 this.fs_watcher.fileChanged.connect(__load_actions)
