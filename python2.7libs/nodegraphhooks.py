@@ -3,8 +3,6 @@ from PySide2 import QtCore
 from canvaseventtypes import KeyboardEvent
 import utility_hotkey_system, hcommander
 
-import traceback
-
 this = sys.modules[__name__]
 
 __userdir = hou.getenv('HOUDINI_USER_PREF_DIR')

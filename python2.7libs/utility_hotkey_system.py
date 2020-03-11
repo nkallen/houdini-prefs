@@ -1,4 +1,4 @@
-import hou, nodegraph, os, csv, sys
+import hou, nodegraph, os, csv, sys, traceback
 import hdefereval
 import types
 import ctypes
@@ -75,10 +75,10 @@ def execute_action_string(uievent, action):
     elif action.startswith('fn:'):
         try:
             with hou.undos.group("Invoke custom user function"):
-                exec(opfunc, {}, {'uievent': uievent, 'hou': hou})
+                exec(opfunc, None, {'uievent': uievent, 'hou': hou})
             return True
         except Exception as e:
-            print(e)
+            traceback.print_exc()
             print(opfunc)
     elif action.startswith('mn:'):
         menu = MenuProvider()
@@ -87,9 +87,9 @@ def execute_action_string(uievent, action):
             get_popup_menu_result(menu, uievent)
             return True
         except Exception as e:
-            print(e)
+            traceback.print_exc()
             print(opfunc)
-    
+
     return False
 
 
@@ -219,6 +219,54 @@ def createNewNode(editor, nodetypename, parms=None):
             hou.hscript("oppresetload " + newNode.path() + " '{0}'".format(parms))
 
     return newNode
+
+#####################################
+
+def dist(descendent, ancestor):
+    if descendent == ancestor:
+        return 0, True
+    
+    result = 0
+    any_found = False
+    for input in descendent.inputs():
+        d, found = dist(input, ancestor)
+        any_found = any_found or found
+        if found:
+            result = max(result, 1 + d)
+    
+    return 1 + result, any_found
+
+# FIXME this is just an experiment to have a grid-snapping layout that matches my intuitions.
+def layout(uievent):
+    editor = uievent.editor
+    pos = editor.cursorPosition()
+    pwd = editor.pwd()
+    pwd.layoutChildren()
+    work = list(pwd.children())
+    endpoints = set()
+    while len(work) > 0:
+        item = work.pop()
+        if len(item.outputs()) > 0:
+            for output in item.outputs():
+                work.append(output)
+        else:
+            endpoints.add(item)
+
+    for ancestor in pwd.children():
+        if ancestor in endpoints:
+            continue
+        maxdist = 0
+        for endpoint in endpoints:
+            d, found = dist(endpoint, ancestor)
+            if found:
+                maxdist = max(maxdist, d)
+        position = ancestor.position()
+        y = list(endpoints)[0].position().y() + maxdist/2.0
+        ancestor.setPosition((math.floor(position.x()), y))
+    
+    for child in pwd.children():
+        position = child.position()
+        child.setPosition((math.floor(position.x()) + 0.5, position.y()))
 
 # FIXME these belong in another file.
 #####################################
