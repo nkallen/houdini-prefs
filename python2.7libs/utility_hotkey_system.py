@@ -268,6 +268,12 @@ def layout(uievent):
         position = child.position()
         child.setPosition((math.floor(position.x()) + 0.5, position.y()))
 
+def drag(self, dx=0, dy=0):
+    for selected in hou.selectedItems():
+        position = selected.position()
+        position += hou.Vector2(dx, dy)
+        selected.setPosition(position)
+        
 # FIXME these belong in another file.
 #####################################
 
@@ -387,7 +393,6 @@ def toggleNetworkEditorGrid():
     networkEditor = hou.ui.paneTabUnderCursor()
     if networkEditor.type() == hou.paneTabType.NetworkEditor:
         networkEditor.setPref("gridmode", "2" if networkEditor.getPref("gridmode") != "2" else "0")
-
 
 
 def jumpUpOneLevel():
