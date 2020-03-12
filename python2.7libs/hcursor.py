@@ -1,7 +1,3 @@
-# make shift alt to drag including all ancestors
-# when laying out, make the last nodes align to grid
-# mouse click moves cursor
-
 import hou, sys
 from canvaseventtypes import MouseEvent
 import nodegraphbase as base
@@ -21,20 +17,27 @@ class Cursor(object):
 
 this.cursor = Cursor()
 
-def createEventHandler(uievent, pending_actions, cursor=this.cursor):
-    if isinstance(uievent, KeyboardEvent) and uievent.eventtype == 'keyhit':
-        dx, dy = _interpret(uievent)
-        if uievent.modifierstate.shift:
-            return BoxPickHandler(uievent, cursor), True
+def createEventHandler(uievent, pending_actions):
+    if isinstance(uievent, MouseEvent) and uievent.eventtype == 'mousedown' and uievent.mousestate.lmb:
+        pos = uievent.editor.posFromScreen(uievent.mousestartpos)
+        this.cursor.position = hou.Vector2(round(pos.x()), round(pos.y()))
+        return None, False
 
-        if uievent.modifierstate.alt:
-            return None, False
+    if not (isinstance(uievent, KeyboardEvent) and uievent.eventtype == 'keyhit'):
+        return None, False
 
-        if dx != 0 or dy != 0:
-            cursor.move(dx=dx, dy=dy)
-            return None, True
+    if uievent.modifierstate.alt:
+        return None, False
+        
+    dx, dy = _interpret(uievent)
+    if dx == 0 and dy == 0:
+        return None, False
 
-    return None, False
+    if uievent.modifierstate.shift:
+        return BoxPickHandler(uievent, this.cursor), True
+
+    this.cursor.move(dx=dx, dy=dy)
+    return None, True
 
 def _interpret(uievent):
     dx = dy = 0
@@ -77,8 +80,6 @@ class BoxPickHandler(base.EventHandler):
         super(BoxPickHandler, self).__init__(uievent)
         self._cursor = cursor
         self._drag_cursor = Cursor(cursor.position)
-        dx, dy = _interpret(uievent)
-        self._drag_cursor.move(dx=dx, dy=dy)
 
     def handleEvent(self, uievent, pending_actions):
         if not isinstance(uievent, KeyboardEvent) and not isinstance(uievent, MouseEvent):
@@ -100,7 +101,7 @@ class BoxPickHandler(base.EventHandler):
         return self
 
     def _redraw(self, uievent, pending_actions):
-        autoscroll.startAutoScroll(self, uievent, [self]) # FIXME check if works
+        autoscroll.startAutoScroll(self, uievent, [self]) # FIXME doesn't work
 
         pos1 = uievent.editor.posToScreen(self._cursor.position)
         pos2 = uievent.editor.posToScreen(self._drag_cursor.position)

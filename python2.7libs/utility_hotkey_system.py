@@ -222,54 +222,65 @@ def createNewNode(editor, nodetypename, parms=None):
 
 #####################################
 
-def dist(descendent, ancestor):
+def _dist(descendent, ancestor):
     if descendent == ancestor:
         return 0, True
     
     result = 0
     any_found = False
     for input in descendent.inputs():
-        d, found = dist(input, ancestor)
+        d, found = _dist(input, ancestor)
         any_found = any_found or found
         if found:
             result = max(result, 1 + d)
     
     return 1 + result, any_found
 
-# FIXME this is just an experiment to have a grid-snapping layout that matches my intuitions.
-def layout(uievent):
+def layout(uievent, items=()):
     editor = uievent.editor
     pos = editor.cursorPosition()
     pwd = editor.pwd()
-    pwd.layoutChildren()
-    work = list(pwd.children())
+    pwd.layoutChildren(items=items)
+    items = items or pwd.children()
+    itemset = set(items)
+    work = list(items)
+
     endpoints = set()
     while len(work) > 0:
         item = work.pop()
-        if len(item.outputs()) > 0:
-            for output in item.outputs():
-                work.append(output)
+        viable_outputs = set(item.outputs()).intersection(itemset)
+        if viable_outputs:
+            for output in viable_outputs:
+                if output in itemset:
+                    work.append(output)
         else:
             endpoints.add(item)
 
-    for ancestor in pwd.children():
+    for ancestor in items:
         if ancestor in endpoints:
             continue
         maxdist = 0
         for endpoint in endpoints:
-            d, found = dist(endpoint, ancestor)
+            d, found = _dist(endpoint, ancestor)
             if found:
                 maxdist = max(maxdist, d)
         position = ancestor.position()
         y = list(endpoints)[0].position().y() + maxdist/2.0
         ancestor.setPosition((math.floor(position.x()), y))
     
-    for child in pwd.children():
+    for child in items:
         position = child.position()
-        child.setPosition((math.floor(position.x()) + 0.5, position.y()))
+        child.setPosition((math.floor(position.x()) + 0.5, -0.15 + math.floor(position.y())))
 
-def drag(self, dx=0, dy=0):
-    for selected in hou.selectedItems():
+def drag(self, include_ancestors=False, dx=0, dy=0):
+    items = set(hou.selectedItems())
+    if include_ancestors:
+        ancestors = set()
+        for node in items:
+            ancestors = ancestors.union(set(node.inputAncestors()))
+        items = items.union(ancestors)
+
+    for selected in items:
         position = selected.position()
         position += hou.Vector2(dx, dy)
         selected.setPosition(position)
