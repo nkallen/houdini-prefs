@@ -4,7 +4,8 @@
 stats/
 config/
 QtWebEngine/
-file.history
+*.history
+wingeo.pref
 
 # OS generated files #
 ######################
