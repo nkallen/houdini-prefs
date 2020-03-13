@@ -1,3 +1,5 @@
+# FIXME set the text at the bottom of the screen with instructions
+
 import hou, sys
 from canvaseventtypes import MouseEvent
 import nodegraphbase as base

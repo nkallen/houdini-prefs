@@ -98,7 +98,6 @@ class HCommanderWindow(QtWidgets.QDialog):
         self.setWindowOpacity(0.95)
 
         selected_node = hou.selectedNodes()[0]
-        self._foo = ParmTupleModel(self, HCommanderWindow._filter(selected_node.parmTuples()))
         self._model = CompositeModel(self, [
             ParmTupleModel(self, HCommanderWindow._filter(selected_node.parmTuples())),
             ActionModel(self, Action.find(selected_node))])
@@ -120,24 +119,18 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._textbox.installEventFilter(self)
         self._textbox.returnPressed.connect(self.accept)
         self._textbox.setStyleSheet("font-size: 18px; height: 24px; border: none; background: transparent")
-        self._textbox
         layout.addWidget(self._textbox)
-
-        self._cmpl = QtWidgets.QCompleter()
-        self._cmpl.setModel(self._model)
-        # self._cmpl.setModelSorting(self._cmpl.CaseSensitivelySortedModel)
-        self._cmpl.setCaseSensitivity(Qt.CaseInsensitive)
-        # self._cmpl.setCompletionMode(self._cmpl.InlineCompletion)
-        # self._textbox.setCompleter(self._cmpl)
 
         self._textbox.textChanged.connect(self._text_changed)
 
         self._list = QtWidgets.QTableView()
         self._list.setShowGrid(True)
-        # self._list.setItemDelegate(QLineDelegate())
-        self._list.setModel(self._foo)
+
+        self._proxy_model = AutoCompleteModel()
+        self._proxy_model.setSourceModel(self._model)
+        self._list.setModel(self._proxy_model)
+
         self._list.setGridStyle(Qt.NoPen)
-        # self._list.setUniformItemSizes(True)
         self._list.clicked.connect(self.accept)
         self._list.verticalHeader().hide()
         self._list.horizontalHeader().hide()
@@ -145,8 +138,8 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._list.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self._list.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
         self._list.setStyleSheet("border: none")
-        self._list.setColumnWidth(0, 80)
-        self._list.setColumnWidth(1, 300)
+        self._list.setColumnWidth(0, 45)
+        self._list.setColumnWidth(1, 320)
         self._list.setColumnWidth(2, 100)
 
         layout.addWidget(self._list)
@@ -166,10 +159,9 @@ class HCommanderWindow(QtWidgets.QDialog):
         return False
 
     def _text_changed(self, text):
-        if text != "":
-            index = self._list.model().index(0, 0)
-            self._cmpl.setCompletionPrefix(text)
-            self._list.setCurrentIndex(index)
+        self._proxy_model.filter(text)
+        index = self._list.model().index(0, 0)
+        self._list.setCurrentIndex(index)
 
     def changeEvent(self, event): # Close when losing focus
         if event.type() == QtCore.QEvent.ActivationChange:
@@ -196,7 +188,6 @@ class HCommanderWindow(QtWidgets.QDialog):
     def _cursor(self, action, modifiers):
         index = self._list.moveCursor(action, modifiers)
         path = index.data(Qt.EditRole)
-        self._textbox.setText(path)
         self._list.setCurrentIndex(index)
         
     def accept(self):
@@ -207,13 +198,47 @@ class HCommanderWindow(QtWidgets.QDialog):
     def selection(self):
         return self._selection
 
-# class QLineDelegate(QtCore.QStyledItemDelegate):
+class AutoCompleteModel(QtCore.QSortFilterProxyModel):
+    def __init__(self, parent=None):
+        super(AutoCompleteModel, self).__init__(parent)
+        self._filter = None
 
+    def setSourceModel(self, model):
+        super(AutoCompleteModel, self).setSourceModel(model)
+        i = 0
+        self._bitsets = []
+        # Construct a bitset for each word for fast(ish) fuzzy-matching
+        while i < model.rowCount():
+            x = 0
+            for char in model.index(i, 1).data(Qt.EditRole).upper():
+                x |= 1 << ord(char) - 48 # inlude 0-9 ... A-Z
+            self._bitsets.append(x)
+            i += 1
 
+    def filterAcceptsRow(self, sourceRow, sourceParent):
+        if not self._filter: return True
+        selector_bitset, selector_text = self._filter
+
+        text = self.sourceModel().index(sourceRow, 1, sourceParent).data()
+        bitset = self._bitsets[sourceRow]
+        return selector_bitset & bitset == selector_bitset
+    
+    def filter(self, text):
+        if text == "":
+            self._filter = None
+
+        x = 0
+        # construct a filter bitset
+        for char in text.upper():
+            x |= 1 << ord(char) - 48
+        self._filter = (x, text)
+        self.beginResetModel()
+        self.endResetModel()
+    
 class ParmTupleModel(QtCore.QAbstractTableModel):
     def __init__(self, parent, parmTuples):
         super(ParmTupleModel, self).__init__(parent)
-        self._parmTuples = parmTuples
+        self._parmTuples = sorted(parmTuples, key=lambda x: x.isAtDefault())
 
     def rowCount(self, parentindex=None):
         return len(self._parmTuples)
@@ -230,7 +255,7 @@ class ParmTupleModel(QtCore.QAbstractTableModel):
             return parm
         if role == Qt.DisplayRole:
             if index.column() == 0:
-                return "icon"
+                return "P"
             elif index.column() == 1:
                 label = parm.parmTemplate().label() + ": " + parm.name()
                 if len(parm) > 1:
@@ -242,17 +267,27 @@ class ParmTupleModel(QtCore.QAbstractTableModel):
                         print "FIXME: need to implement other naming schemes", parm.parmTemplate().namingScheme()
                 return label
             elif index.column() == 2:
-                return parm.eval()[0]
+                return ", ".join(str(v) for v in parm.eval())
         
+        if role == Qt.ForegroundRole:
+            if index.column() == 2:
+                if parm.isAtDefault():
+                    return QtGui.QColor(Qt.darkGray)
+                else:
+                    return QtGui.QColor(Qt.white)
+            return None
         if role == Qt.EditRole:
             return parm.name()
         
         return None
 
-class ActionModel(QtCore.QAbstractListModel):
+class ActionModel(QtCore.QAbstractTableModel):
     def __init__(self, parent, actions):
         super(ActionModel, self).__init__(parent)
         self._actions = actions
+
+    def columnCount(self, parentindex=None):
+        return 3
 
     def rowCount(self, parentindex=None):
         return len(self._actions)
@@ -264,19 +299,27 @@ class ActionModel(QtCore.QAbstractListModel):
             return action
 
         if role == Qt.DisplayRole:
-            label = action.label + ": " + action.name
-            return label
+            if index.column() == 0:
+                return "A"
+            elif index.column() == 1:
+                label = action.label + ": " + action.name
+                return label
+            else:
+                return None
         
         if role == Qt.EditRole:
             return action.name
         
         return None
 
-class CompositeModel(QtCore.QAbstractListModel):
+class CompositeModel(QtCore.QAbstractTableModel):
     def __init__(self, parent, models):
         super(CompositeModel, self).__init__(parent)
         self._models = models
 
+    def columnCount(self, parentindex=None):
+        return 3
+        
     def rowCount(self, parentindex=None):
         sum = 0
         for model in self._models:
