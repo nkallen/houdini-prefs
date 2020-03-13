@@ -8,6 +8,13 @@ from canvaseventtypes import KeyboardEvent
 
 this = sys.modules[__name__]
 
+"""
+This nodegraphhook is a keyboard based cursor and selection tool. Arrow keys move a cursor around the
+grid, shift+arrow keys selects using something like the box select tool. Alt-shift-select is an
+experimental feature that moves the entire selection box around. Finally, if you hold ctrl, the
+cursor will move by 10 units rather than 1.
+"""
+
 class Cursor(object):
     def __init__(self, position=hou.Vector2(0,0)):
         self.position = position
@@ -125,6 +132,10 @@ class BoxPickHandler(base.EventHandler):
         uievent.editor.setPreSelectedItems(())
         view.modifySelection(uievent, None, items)
 
+"""
+The cursor is visualized with a little box. To keep it on the screen we need to hack into the 
+EditorUpdates class, or it will get cleared after every event.
+"""
 if not hasattr(this, '_OriginalEditorUpdates'):
     _OriginalEditorUpdates = utils.EditorUpdates
 

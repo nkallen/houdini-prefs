@@ -1,6 +1,6 @@
 import hou, os, sys
 from PySide2 import QtCore
-from canvaseventtypes import KeyboardEvent
+from canvaseventtypes import KeyboardEvent, MouseEvent
 import utility_hotkey_system, hcommander
 import hcursor
 
@@ -32,5 +32,10 @@ def createEventHandler(uievent, pending_actions):
 
     if isinstance(uievent, KeyboardEvent):
         return utility_hotkey_system.invoke_action_from_key(uievent)
+
+    if isinstance(uievent, MouseEvent):
+        if uievent.eventtype == 'mousedown' and uievent.modifierstate.alt:
+            utility_hotkey_system.move_selection_to_mouse(uievent, include_ancestors=uievent.modifierstate.shift)
+            return None, True
 
     return None, False

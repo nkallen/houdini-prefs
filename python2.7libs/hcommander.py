@@ -1,4 +1,5 @@
 import hou, nodegraph, os, csv, sys
+from hou import parmTemplateType
 from collections import defaultdict
 import nodegraphbase as base
 from canvaseventtypes import *
@@ -90,19 +91,25 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._volatile = volatile
 
         self.editor = editor
-        self.setMinimumWidth(240)
+        self.setMinimumWidth(500)
         self.setMinimumHeight(100)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowModality(Qt.ApplicationModal)
-        self.setWindowOpacity(0.75)
+        self.setWindowOpacity(0.95)
 
         selected_node = hou.selectedNodes()[0]
+        self._foo = ParmTupleModel(self, HCommanderWindow._filter(selected_node.parmTuples()))
         self._model = CompositeModel(self, [
-            ParmTupleModel(self, selected_node.parmTuples()),
+            ParmTupleModel(self, HCommanderWindow._filter(selected_node.parmTuples())),
             ActionModel(self, Action.find(selected_node))])
 
         self._setup_ui()
         self._selection = None
+    
+    @staticmethod
+    def _filter(parmTuples):
+        valid_types = { parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String }
+        return list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
 
     def _setup_ui(self):
         layout = QtWidgets.QVBoxLayout()
@@ -125,12 +132,25 @@ class HCommanderWindow(QtWidgets.QDialog):
 
         self._textbox.textChanged.connect(self._text_changed)
 
-        self._list = QtWidgets.QListView()
-        self._list.setModel(self._cmpl.completionModel())
-        self._list.setUniformItemSizes(True)
+        self._list = QtWidgets.QTableView()
+        self._list.setShowGrid(True)
+        # self._list.setItemDelegate(QLineDelegate())
+        self._list.setModel(self._foo)
+        self._list.setGridStyle(Qt.NoPen)
+        # self._list.setUniformItemSizes(True)
         self._list.clicked.connect(self.accept)
-        layout.addWidget(self._list)
+        self._list.verticalHeader().hide()
+        self._list.horizontalHeader().hide()
+        self._list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
+        self._list.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self._list.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self._list.setStyleSheet("border: none")
+        self._list.setColumnWidth(0, 80)
+        self._list.setColumnWidth(1, 300)
+        self._list.setColumnWidth(2, 100)
 
+        layout.addWidget(self._list)
+    
     def eventFilter(self, obj, event):
         if self._volatile:
             if event.type() == QtCore.QEvent.KeyPress and event.key() == Qt.Key_Space and event.isAutoRepeat():
@@ -187,8 +207,10 @@ class HCommanderWindow(QtWidgets.QDialog):
     def selection(self):
         return self._selection
 
+# class QLineDelegate(QtCore.QStyledItemDelegate):
 
-class ParmTupleModel(QtCore.QAbstractListModel):
+
+class ParmTupleModel(QtCore.QAbstractTableModel):
     def __init__(self, parent, parmTuples):
         super(ParmTupleModel, self).__init__(parent)
         self._parmTuples = parmTuples
@@ -196,20 +218,31 @@ class ParmTupleModel(QtCore.QAbstractListModel):
     def rowCount(self, parentindex=None):
         return len(self._parmTuples)
     
+    def columnCount(self, parentindex=None):
+        return 3
+    
     def data(self, index, role):
+        if not index.isValid(): return None
+        if not 0 <= index.row() < len(self._parmTuples): return None
+
         parm = self._parmTuples[index.row()]
         if role == Qt.UserRole:
             return parm
         if role == Qt.DisplayRole:
-            label = parm.parmTemplate().label() + ": " + parm.name()
-            if len(parm) > 1:
-                if parm.parmTemplate().namingScheme() == hou.parmNamingScheme.XYZW:
-                    label += " - " + "XYZW"[0:len(parm)]
-                elif parm.parmTemplate().namingScheme() == hou.parmNamingScheme.Base1:
-                    label += " - " + "123456789"[0:len(parm)]
-                else:
-                    print "FIXME: need to implement other naming schemes", parm.parmTemplate().namingScheme()
-            return label
+            if index.column() == 0:
+                return "icon"
+            elif index.column() == 1:
+                label = parm.parmTemplate().label() + ": " + parm.name()
+                if len(parm) > 1:
+                    if parm.parmTemplate().namingScheme() == hou.parmNamingScheme.XYZW:
+                        label += " - " + "XYZW"[0:len(parm)]
+                    elif parm.parmTemplate().namingScheme() == hou.parmNamingScheme.Base1:
+                        label += " - " + "123456789"[0:len(parm)]
+                    else:
+                        print "FIXME: need to implement other naming schemes", parm.parmTemplate().namingScheme()
+                return label
+            elif index.column() == 2:
+                return parm.eval()[0]
         
         if role == Qt.EditRole:
             return parm.name()
@@ -278,10 +311,10 @@ class SetParamWindow(QtWidgets.QDialog):
         self._parmTuple = parmTuple
         self._original_value = parmTuple.eval()
 
-        self.setMinimumWidth(240)
+        self.setMinimumWidth(400)
         self.setMinimumHeight(100)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
-        self.setWindowOpacity(0.75)
+        self.setWindowOpacity(0.95)
         # NOTE: This window in every way acts like its modal. HOWEVER, modality
         # makes live-previewing user updates impossible. So 
 

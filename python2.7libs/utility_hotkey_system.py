@@ -272,7 +272,7 @@ def layout(uievent, items=()):
         position = child.position()
         child.setPosition((math.floor(position.x()) + 0.5, -0.15 + math.floor(position.y())))
 
-def drag(self, include_ancestors=False, dx=0, dy=0):
+def drag(include_ancestors=False, dx=0, dy=0):
     items = set(hou.selectedItems())
     if include_ancestors:
         ancestors = set()
@@ -280,10 +280,27 @@ def drag(self, include_ancestors=False, dx=0, dy=0):
             ancestors = ancestors.union(set(node.inputAncestors()))
         items = items.union(ancestors)
 
-    for selected in items:
-        position = selected.position()
-        position += hou.Vector2(dx, dy)
-        selected.setPosition(position)
+    with hou.undos.group("Move nodes"):
+        for selected in items:
+            position = selected.position()
+            position += hou.Vector2(dx, dy)
+            selected.setPosition(position)
+
+def move_selection_to_mouse(uievent, include_ancestors=False):
+
+    items = set(hou.selectedItems())
+    if not items: return
+    if include_ancestors:
+        ancestors = set()
+        for node in items:
+            ancestors = ancestors.union(set(node.inputAncestors()))
+        items = items.union(ancestors)
+
+    last = hou.selectedItems()[-1]
+    delta = uievent.editor.cursorPosition() - last.position()
+    with hou.undos.group("Move nodes"):
+        for item in items:
+            item.setPosition(item.position() + delta)
         
 # FIXME these belong in another file.
 #####################################
