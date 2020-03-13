@@ -92,7 +92,7 @@ class HCommanderWindow(QtWidgets.QDialog):
 
         self.editor = editor
         self.setMinimumWidth(500)
-        self.setMinimumHeight(100)
+        self.setMinimumHeight(300)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowModality(Qt.ApplicationModal)
         self.setWindowOpacity(0.95)
@@ -218,18 +218,31 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
     def filterAcceptsRow(self, sourceRow, sourceParent):
         if not self._filter: return True
         selector_bitset, selector_text = self._filter
-
-        text = self.sourceModel().index(sourceRow, 1, sourceParent).data()
+        
+        text = self.sourceModel().index(sourceRow, 1, sourceParent).data(Qt.EditRole)
         bitset = self._bitsets[sourceRow]
-        return selector_bitset & bitset == selector_bitset
+        # check every character is present ...
+        if not selector_bitset & bitset == selector_bitset:
+            return False
+        
+        # make sure the characters are in order
+        selector_text = selector_text
+        i = 0
+        for char in text.upper():
+            print char, selector_text[i] 
+            if char == selector_text[i]: i += 1
+            if len(selector_text) == i: return True
     
+        return False
+
     def filter(self, text):
         if text == "":
             self._filter = None
 
         x = 0
         # construct a filter bitset
-        for char in text.upper():
+        text = text.upper()
+        for char in text:
             x |= 1 << ord(char) - 48
         self._filter = (x, text)
         self.beginResetModel()
@@ -354,7 +367,7 @@ class SetParamWindow(QtWidgets.QDialog):
         self._parmTuple = parmTuple
         self._original_value = parmTuple.eval()
 
-        self.setMinimumWidth(400)
+        self.setMinimumWidth(500)
         self.setMinimumHeight(100)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
