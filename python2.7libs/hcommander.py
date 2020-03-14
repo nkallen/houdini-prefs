@@ -130,7 +130,9 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._proxy_model.setSourceModel(self._model)
         self._list.setModel(self._proxy_model)
 
-        self._list.setGridStyle(Qt.NoPen)
+        self._item_delegate = ItemDelegate()
+
+        self._list.setGridStyle(Qt.NoPen) # FIXME?
         self._list.clicked.connect(self.accept)
         self._list.verticalHeader().hide()
         self._list.horizontalHeader().hide()
@@ -141,6 +143,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._list.setColumnWidth(0, 45)
         self._list.setColumnWidth(1, 320)
         self._list.setColumnWidth(2, 100)
+        self._list.setItemDelegate(self._item_delegate)
 
         layout.addWidget(self._list)
     
@@ -160,6 +163,7 @@ class HCommanderWindow(QtWidgets.QDialog):
 
     def _text_changed(self, text):
         self._proxy_model.filter(text)
+        self._item_delegate.filter(text)
         index = self._list.model().index(0, 0)
         self._list.setCurrentIndex(index)
 
@@ -198,6 +202,81 @@ class HCommanderWindow(QtWidgets.QDialog):
     def selection(self):
         return self._selection
 
+"""
+This class represents items matching the autocomplete text in the hcommander. It highlights matching
+characters in bold. It's honestly absurd how hard this is to do in QT.
+"""
+class ItemDelegate(QtWidgets.QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super(ItemDelegate, self).__init__(parent)
+        self.doc = QtGui.QTextDocument(self)
+        self._highlight_format = QtGui.QTextCharFormat()
+        self._highlight_format.setForeground(QtCore.Qt.green)
+        self._highlight_format.setFontWeight(QtGui.QFont.Bold)
+        self._filter = None
+
+    def filter(self, text):
+        self._filter = text
+
+    def paint(self, painter, options, index):
+        if index.column() == 1:
+            painter.save()
+            self.initStyleOption(options, index)
+
+            # draw everything we would normally draw, minus the text:
+            options.text = ""
+            style = options.widget.style()
+            style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, options, painter, options.widget)
+
+            # now issue low-level drawing commands to render the text with special formatting
+            text_rect = style.subElementRect(
+                QtWidgets.QStyle.SE_ItemViewItemText, options, options.widget)
+
+            margin = style.pixelMetric(QtWidgets.QStyle.PM_FocusFrameHMargin, None, options.widget) + 1
+
+            text_rect.adjust(margin, margin, 0, 0)
+
+            if self._filter:
+                self.doc.setPlainText("")
+                cursor = QtGui.QTextCursor(self.doc)
+                plain = cursor.charFormat()
+                cursor.mergeCharFormat(self._highlight_format)
+                highlight = cursor.charFormat()
+                for text in index.data():
+                    i = 0
+                    for char in text:
+                        if i < len(self._filter) and char == self._filter[i]:
+                            i += 1
+                            cursor.setCharFormat(highlight)
+                        else:
+                            cursor.setCharFormat(plain)
+                        cursor.insertText(char)
+                    cursor.insertText(" - ")
+            else:
+                self.doc.setPlainText(" - ".join(index.data()))
+
+            painter.translate(text_rect.topLeft())
+            painter.setClipRect(text_rect.translated(-text_rect.topLeft()))
+            ctx = QtGui.QAbstractTextDocumentLayout.PaintContext()
+            self.doc.documentLayout().draw(painter, ctx)
+            
+            painter.restore()
+        else:
+            super(ItemDelegate, self).paint(painter, options, index)
+
+    def apply_highlight(self):
+        if not self._filter: return
+        regex = QtCore.QRegularExpression(r"a")
+
+        cursor = QtGui.QTextCursor(self.doc)
+        cursor.beginEditBlock()
+        highlightCursor = QtGui.QTextCursor(self.doc)
+        while not highlightCursor.isNull() and not highlightCursor.atEnd():
+            highlightCursor = self.doc.find(regex, highlightCursor)
+            if not highlightCursor.isNull():
+                highlightCursor.mergeCharFormat(self._highlight_format)
+        cursor.endEditBlock()
+
 ParmTupleRole = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
 
@@ -220,7 +299,6 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
             label, name = model.index(i, 1).data(AutoCompleteRole)
             label_and_name_bitset = []
             for text in [label, name]:
-                print text
                 bitset = 0
                 for char in text.upper():
                     o = ord(char)
@@ -233,6 +311,7 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
     def filterAcceptsRow(self, sourceRow, sourceParent):
         if not self._filter: return True
         selector_bitset, selector_text = self._filter
+        if selector_bitset == 0: return True
         
         texts = self.sourceModel().index(sourceRow, 1, sourceParent).data(AutoCompleteRole)
         label_bitset, name_bitset = self._bitsets[sourceRow]
@@ -245,9 +324,9 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         for text in texts:
             i = 0
             for char in text.upper():
-                print char, selector_text[i] 
-                if char == selector_text[i]: i += 1
-                if len(selector_text) == i: return True
+                if char == selector_text[i]:
+                    i += 1
+                    if len(selector_text) == i: return True
     
         return False
 
@@ -286,6 +365,8 @@ class ParmTupleModel(QtCore.QAbstractTableModel):
             if index.column() == 0:
                 return "P"
             elif index.column() == 1:
+                return parm.parmTemplate().label(), parm.name()
+
                 label = parm.parmTemplate().label() + ": " + parm.name()
                 if len(parm) > 1:
                     if parm.parmTemplate().namingScheme() == hou.parmNamingScheme.XYZW:
