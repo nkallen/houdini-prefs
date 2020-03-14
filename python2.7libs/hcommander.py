@@ -192,12 +192,20 @@ class HCommanderWindow(QtWidgets.QDialog):
         
     def accept(self):
         for index in self._list.selectedIndexes():
-            self._selection = index.data(Qt.UserRole)
+            self._selection = index.data(ParmTupleRole)
         self.close()
     
     def selection(self):
         return self._selection
 
+ParmTupleRole = Qt.UserRole 
+AutoCompleteRole = Qt.UserRole + 1
+
+"""
+This is a custom autocompleter that can match either the "label" or the "name" in an item. Its key
+feature is when a user types "upr" it can match "upper", "super", etc. which differs from the
+default QT prefix/suffix matching.
+"""
 class AutoCompleteModel(QtCore.QSortFilterProxyModel):
     def __init__(self, parent=None):
         super(AutoCompleteModel, self).__init__(parent)
@@ -209,29 +217,37 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         self._bitsets = []
         # Construct a bitset for each word for fast(ish) fuzzy-matching
         while i < model.rowCount():
-            x = 0
-            for char in model.index(i, 1).data(Qt.EditRole).upper():
-                x |= 1 << ord(char) - 48 # inlude 0-9 ... A-Z
-            self._bitsets.append(x)
+            label, name = model.index(i, 1).data(AutoCompleteRole)
+            label_and_name_bitset = []
+            for text in [label, name]:
+                print text
+                bitset = 0
+                for char in text.upper():
+                    o = ord(char)
+                    if o < 48: continue
+                    bitset |= 1 << ord(char) - 48 # inlude 0-9 ... A-Z
+                label_and_name_bitset.append(bitset)
+            self._bitsets.append(tuple(label_and_name_bitset))
             i += 1
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
         if not self._filter: return True
         selector_bitset, selector_text = self._filter
         
-        text = self.sourceModel().index(sourceRow, 1, sourceParent).data(Qt.EditRole)
-        bitset = self._bitsets[sourceRow]
+        texts = self.sourceModel().index(sourceRow, 1, sourceParent).data(AutoCompleteRole)
+        label_bitset, name_bitset = self._bitsets[sourceRow]
+
         # check every character is present ...
-        if not selector_bitset & bitset == selector_bitset:
+        if not selector_bitset & label_bitset == selector_bitset and not selector_bitset & name_bitset == selector_bitset:
             return False
         
-        # make sure the characters are in order
-        selector_text = selector_text
-        i = 0
-        for char in text.upper():
-            print char, selector_text[i] 
-            if char == selector_text[i]: i += 1
-            if len(selector_text) == i: return True
+        # make sure the characters are in order in any text
+        for text in texts:
+            i = 0
+            for char in text.upper():
+                print char, selector_text[i] 
+                if char == selector_text[i]: i += 1
+                if len(selector_text) == i: return True
     
         return False
 
@@ -264,7 +280,7 @@ class ParmTupleModel(QtCore.QAbstractTableModel):
         if not 0 <= index.row() < len(self._parmTuples): return None
 
         parm = self._parmTuples[index.row()]
-        if role == Qt.UserRole:
+        if role == ParmTupleRole:
             return parm
         if role == Qt.DisplayRole:
             if index.column() == 0:
@@ -289,8 +305,8 @@ class ParmTupleModel(QtCore.QAbstractTableModel):
                 else:
                     return QtGui.QColor(Qt.white)
             return None
-        if role == Qt.EditRole:
-            return parm.name()
+        if role == AutoCompleteRole:
+            return parm.parmTemplate().label(), parm.name()
         
         return None
 
@@ -308,7 +324,7 @@ class ActionModel(QtCore.QAbstractTableModel):
     def data(self, index, role):
         action = self._actions[index.row()]
 
-        if role == Qt.UserRole:
+        if role == ParmTupleRole:
             return action
 
         if role == Qt.DisplayRole:
@@ -320,8 +336,8 @@ class ActionModel(QtCore.QAbstractTableModel):
             else:
                 return None
         
-        if role == Qt.EditRole:
-            return action.name
+        if role == AutoCompleteRole:
+            return action.label, action.name
         
         return None
 
