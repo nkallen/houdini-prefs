@@ -211,7 +211,6 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
         super(ItemDelegate, self).__init__(parent)
         self.doc = QtGui.QTextDocument(self)
         self._highlight_format = QtGui.QTextCharFormat()
-        self._highlight_format.setForeground(QtCore.Qt.green)
         self._highlight_format.setFontWeight(QtGui.QFont.Bold)
         self._filter = None
 
@@ -242,18 +241,29 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                 plain = cursor.charFormat()
                 cursor.mergeCharFormat(self._highlight_format)
                 highlight = cursor.charFormat()
-                for text in index.data():
-                    i = 0
-                    for char in text:
-                        if i < len(self._filter) and char == self._filter[i]:
-                            i += 1
-                            cursor.setCharFormat(highlight)
-                        else:
-                            cursor.setCharFormat(plain)
-                        cursor.insertText(char)
-                    cursor.insertText(" - ")
+                filter = self._filter.upper()
+                first = True
+                match = index.data(WhichMatchRole)
+                for x, text in enumerate(index.data()):
+                    if x == match:
+                        i = 0
+                        for char in text:
+                            if i < len(self._filter) and char.upper() == filter[i]:
+                                i += 1
+                                cursor.setCharFormat(highlight)
+                            else:
+                                cursor.setCharFormat(plain)
+                            cursor.insertText(char)
+                    else:
+                        cursor.setCharFormat(plain)
+                        cursor.insertText(text)
+                    if first: cursor.insertText(": ")
+                    else: cursor.insertText(" ")
+                    first = False
             else:
-                self.doc.setPlainText(" - ".join(index.data()))
+                labels = index.data()
+                first, rest = labels[0], labels[1:]
+                self.doc.setPlainText(first + ": " + " ".join(rest) + "")
 
             painter.translate(text_rect.topLeft())
             painter.setClipRect(text_rect.translated(-text_rect.topLeft()))
@@ -279,6 +289,7 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
 
 ParmTupleRole = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
+WhichMatchRole = Qt.UserRole + 2
 
 """
 This is a custom autocompleter that can match either the "label" or the "name" in an item. Its key
@@ -293,19 +304,19 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
     def setSourceModel(self, model):
         super(AutoCompleteModel, self).setSourceModel(model)
         i = 0
-        self._bitsets = []
+        self._bitsetss = []
         # Construct a bitset for each word for fast(ish) fuzzy-matching
         while i < model.rowCount():
-            label, name = model.index(i, 1).data(AutoCompleteRole)
-            label_and_name_bitset = []
-            for text in [label, name]:
+            labels = model.index(i, 1).data(AutoCompleteRole)
+            bitsets = []
+            for text in labels:
                 bitset = 0
                 for char in text.upper():
                     o = ord(char)
                     if o < 48: continue
                     bitset |= 1 << ord(char) - 48 # inlude 0-9 ... A-Z
-                label_and_name_bitset.append(bitset)
-            self._bitsets.append(tuple(label_and_name_bitset))
+                bitsets.append(bitset)
+            self._bitsetss.append(tuple(bitsets))
             i += 1
 
     def filterAcceptsRow(self, sourceRow, sourceParent):
@@ -313,15 +324,18 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         selector_bitset, selector_text = self._filter
         if selector_bitset == 0: return True
         
-        texts = self.sourceModel().index(sourceRow, 1, sourceParent).data(AutoCompleteRole)
-        label_bitset, name_bitset = self._bitsets[sourceRow]
+        labels = self.sourceModel().index(sourceRow, 1, sourceParent).data(AutoCompleteRole)
+        bitsets = self._bitsetss[sourceRow]
 
-        # check every character is present ...
-        if not selector_bitset & label_bitset == selector_bitset and not selector_bitset & name_bitset == selector_bitset:
+        # check every character is present in any of the labels or names ...
+        match = False
+        for bitset in bitsets:
+            match = match or bitset & selector_bitset == selector_bitset
+        if not match:
             return False
         
         # make sure the characters are in order in any text
-        for text in texts:
+        for text in labels:
             i = 0
             for char in text.upper():
                 if char == selector_text[i]:
@@ -329,6 +343,19 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
                     if len(selector_text) == i: return True
     
         return False
+
+    def data(self, index, role):
+        if role == WhichMatchRole:
+            bitsets = self._bitsetss[index.row()]
+            selector_bitset, selector_text = self._filter
+
+            # check every character is present in any of the labels or names ...
+            i = 0
+            for bitset in bitsets:
+                if bitset & selector_bitset == selector_bitset: return i
+                i += 1
+        else:
+            return super(AutoCompleteModel, self).data(index, role)
 
     def filter(self, text):
         if text == "":
@@ -358,36 +385,27 @@ class ParmTupleModel(QtCore.QAbstractTableModel):
         if not index.isValid(): return None
         if not 0 <= index.row() < len(self._parmTuples): return None
 
-        parm = self._parmTuples[index.row()]
+        parmTuple = self._parmTuples[index.row()]
         if role == ParmTupleRole:
-            return parm
+            return parmTuple
         if role == Qt.DisplayRole:
             if index.column() == 0:
                 return "P"
             elif index.column() == 1:
-                return parm.parmTemplate().label(), parm.name()
-
-                label = parm.parmTemplate().label() + ": " + parm.name()
-                if len(parm) > 1:
-                    if parm.parmTemplate().namingScheme() == hou.parmNamingScheme.XYZW:
-                        label += " - " + "XYZW"[0:len(parm)]
-                    elif parm.parmTemplate().namingScheme() == hou.parmNamingScheme.Base1:
-                        label += " - " + "123456789"[0:len(parm)]
-                    else:
-                        print "FIXME: need to implement other naming schemes", parm.parmTemplate().namingScheme()
-                return label
+                return self.data(index, AutoCompleteRole)
             elif index.column() == 2:
-                return ", ".join(str(v) for v in parm.eval())
+                return ", ".join(str(v) for v in parmTuple.eval())
         
         if role == Qt.ForegroundRole:
             if index.column() == 2:
-                if parm.isAtDefault():
+                if parmTuple.isAtDefault():
                     return QtGui.QColor(Qt.darkGray)
                 else:
                     return QtGui.QColor(Qt.white)
             return None
         if role == AutoCompleteRole:
-            return parm.parmTemplate().label(), parm.name()
+            if index.column() == 1:
+                return [parmTuple.parmTemplate().label()] + map(lambda x: x.name(), parmTuple)
         
         return None
 
@@ -418,7 +436,7 @@ class ActionModel(QtCore.QAbstractTableModel):
                 return None
         
         if role == AutoCompleteRole:
-            return action.label, action.name
+            return [action.label, action.name]
         
         return None
 
