@@ -69,10 +69,10 @@ def handleEvent(uievent):
 def handleEventCoroutine(editor, volatile=True):
     window = HCommanderWindow(editor, volatile)
     window.exec_()
-    selection = window.selection()
+    selection, which_match = window.selection()
     if type(selection) is hou.ParmTuple:
         if selection:
-            window = SetParamWindow(editor, selection)
+            window = SetParamWindow(editor, selection, which_match)
             window.show()
             window.activateWindow()
             while window.isVisible():
@@ -103,7 +103,7 @@ class HCommanderWindow(QtWidgets.QDialog):
             ActionModel(self, Action.find(selected_node))])
 
         self._setup_ui()
-        self._selection = None
+        self._selection = (None, None)
     
     @staticmethod
     def _filter(parmTuples):
@@ -196,7 +196,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         
     def accept(self):
         for index in self._list.selectedIndexes():
-            self._selection = index.data(ParmTupleRole)
+            self._selection = (index.data(ParmTupleRole), (index.data(WhichMatchRole) or 1) - 1)
         self.close()
     
     def selection(self):
@@ -292,9 +292,10 @@ AutoCompleteRole = Qt.UserRole + 1
 WhichMatchRole = Qt.UserRole + 2
 
 """
-This is a custom autocompleter that can match either the "label" or the "name" in an item. Its key
+This is a custom autocompleter that can match either the "label" or the "name(s)" in an item. Its key
 feature is when a user types "upr" it can match "upper", "super", etc. which differs from the
-default QT prefix/suffix matching.
+default QT prefix/suffix matching. Items have labels like "translation" and names like "tx", "ty",
+etc.
 """
 class AutoCompleteModel(QtCore.QSortFilterProxyModel):
     def __init__(self, parent=None):
@@ -346,6 +347,8 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
 
     def data(self, index, role):
         if role == WhichMatchRole:
+            if not self._filter: return None
+        
             bitsets = self._bitsetss[index.row()]
             selector_bitset, selector_text = self._filter
 
@@ -430,13 +433,12 @@ class ActionModel(QtCore.QAbstractTableModel):
             if index.column() == 0:
                 return "A"
             elif index.column() == 1:
-                label = action.label + ": " + action.name
-                return label
+                return self.data(index, AutoCompleteRole)
             else:
                 return None
         
         if role == AutoCompleteRole:
-            return [action.label, action.name]
+            return (action.label, action.name)
         
         return None
 
@@ -472,11 +474,12 @@ scrollwheel will modify values. Special care is made for ParamTuples, e.g., XYZ 
 which three text fields appear simultaneously.
 """
 class SetParamWindow(QtWidgets.QDialog):
-    def __init__(self, editor, parmTuple):
+    def __init__(self, editor, parmTuple, which_match):
         super(SetParamWindow, self).__init__(
             hou.qt.floatingPanelWindow(editor.pane().floatingPanel())
         )
         self._editor = editor
+        # Disable undos while the user makes interactive edits. We'll renable them when ESC or RETURN is hit.
         self._undo_context = hou.undos.disabler()
         self._undo_context.__enter__()
         self._parmTuple = parmTuple
@@ -491,9 +494,9 @@ class SetParamWindow(QtWidgets.QDialog):
 
         self._accepted = False
 
-        self._setup_ui()
+        self._setup_ui(which_match)
 
-    def _setup_ui(self):
+    def _setup_ui(self, which_match):
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
@@ -509,6 +512,8 @@ class SetParamWindow(QtWidgets.QDialog):
             textbox.installEventFilter(self)
             textbox.setProperty("parm", parm)
             layout.addWidget(textbox)
+            if i == which_match:
+                textbox.setFocus()
             self._textboxes.append(textbox)
 
     def wheelEvent(self, event):
@@ -543,9 +548,9 @@ class SetParamWindow(QtWidgets.QDialog):
     def accept(self):
         self._accepted = True
         self._undo_context.__exit__(None, None, None)
-        hou.undos.group("Parameter Change")
-        for i, parm in enumerate(self._parmTuple):
-            parm.set(float(self._textboxes[i].text()))
+        with hou.undos.group("Parameter Change"):
+            for i, parm in enumerate(self._parmTuple):
+                parm.set(float(self._textboxes[i].text()))
         self.close()
 
     def close(self):
