@@ -1,5 +1,7 @@
-import hou, traceback
-# from hou import parmTemplateType
+import hou, traceback, sys
+from hou import parmTemplateType
+
+this = sys.modules[__name__]
 
 """
 Currently this is a very simple extension to display parameters of nodes directly in the network
@@ -9,14 +11,19 @@ a summary of the non-default key-value-paris, and hacks them into the "descripti
 
 __name = "nk_parm_summary"
 
+this.visualizing = False
+
 def createEventHandler(uievent, pending_actions):
     if uievent.eventtype == 'keydown' and uievent.key == 'Shift+Space':
         visualize(uievent)
+        this.visualizing = True
         return None, True
 
-    elif uievent.eventtype == 'keyup' and uievent.key == 'Shift+Space':
+    elif uievent.eventtype == 'keyup' and this.visualizing:
+        this.visualizing = False
         unvisualize(uievent)
     
+    visualizing = False
     return None, False
 
 
@@ -32,14 +39,12 @@ def visualize(uievent):
             kvps = []
             for parm_tuple in child.parmTuples():
                 type = parm_tuple.parmTemplate().type()
-                # if not type in (parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, StringParmTemplate, parmTemplateType.Toggle):
-                #     continue
+                if not type in (parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle):
+                    continue
                 if not parm_tuple.isAtDefault() and parm_tuple.name() != __name:
                     vs = []
                     for v in parm_tuple.eval():
-                        print type
                         if type == hou.parmTemplateType.Float:
-                            print "float", "{:.2f}".format(v)
                             vs.append("{:.2f}".format(v))
                         else:
                             vs.append(str(v))

@@ -26,11 +26,11 @@ fs_watcher.addPath(os.path.join(__pythonlibs, "hviz.py"))
 fs_watcher.fileChanged.connect(__reload_pythonlibs)
 
 def createEventHandler(uievent, pending_actions):
-    handler, handled = hviz.createEventHandler(uievent, pending_actions)
-    if handler or handled: return handler, handled
+    # handler, handled = hviz.createEventHandler(uievent, pending_actions)
+    # if handler or handled: return handler, handled
 
-    handler, handled = hcursor.createEventHandler(uievent, pending_actions)
-    if handler or handled: return handler, handled
+    # handler, handled = hcursor.createEventHandler(uievent, pending_actions)
+    # if handler or handled: return handler, handled
 
     handler, handled = hcommander.handleEvent(uievent)
     if handler or handled: return handler, handled

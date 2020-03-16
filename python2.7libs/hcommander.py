@@ -53,7 +53,11 @@ def handleEvent(uievent):
         next(this.cc)
         return None, True
 
+    # if uievent.eventtype == 'mousedown':
+    #     print uievent
+
     if this.cc:
+        # print 2, uievent
         if uievent.eventtype == 'keyup' and uievent.key == 'Space':
             return None, True
 
@@ -472,6 +476,8 @@ Command can quickly set params of the current selection. Params can be of variou
 like String and Float; for the latter, special interaction like the arrow keys or the mouse
 scrollwheel will modify values. Special care is made for ParamTuples, e.g., XYZ parameters,
 which three text fields appear simultaneously.
+
+Note that ESC closes the window and aborts changes. But ENTER or LEFT MOUSECLICK accepts the changes.
 """
 class SetParamWindow(QtWidgets.QDialog):
     def __init__(self, editor, parmTuple, which_match):
@@ -492,8 +498,7 @@ class SetParamWindow(QtWidgets.QDialog):
         # NOTE: This window in every way acts like its modal. HOWEVER, modality
         # makes live-previewing user updates impossible. So 
 
-        self._accepted = False
-
+        self._reset = None
         self._setup_ui(which_match)
 
     def _setup_ui(self, which_match):
@@ -515,17 +520,22 @@ class SetParamWindow(QtWidgets.QDialog):
             if i == which_match:
                 textbox.setFocus()
             self._textboxes.append(textbox)
-
+    
     def wheelEvent(self, event):
         self.delta(event.angleDelta().y())
 
+    # Centralize saving and canceling when the window closes;
     def changeEvent(self, event):
         if event.type() == QtCore.QEvent.ActivationChange:
-            if not self.isActiveWindow() and not self._accepted:
-                self._parmTuple.set(self._original_value)
-                self._undo_context.__exit__(None, None, None)
-
-                self.close()
+            if not self.isActiveWindow():
+                if self._reset:
+                    self._parmTuple.set(self._original_value)
+                    self._undo_context.__exit__(None, None, None)
+                else:
+                    self._undo_context.__exit__(None, None, None)
+                    with hou.undos.group("Parameter Change"):
+                        for i, parm in enumerate(self._parmTuple):
+                            parm.set(float(self._textboxes[i].text()))
 
     def eventFilter(self, obj, event):
         if event.type() == QtCore.QEvent.KeyPress:
@@ -534,6 +544,10 @@ class SetParamWindow(QtWidgets.QDialog):
                 return True
             elif event.key() == Qt.Key_Down:
                 self.delta(-1)
+                return True
+            elif event.key() == Qt.Key_Escape:
+                self._reset = True
+                self.close()
                 return True
 
         return False
@@ -546,11 +560,7 @@ class SetParamWindow(QtWidgets.QDialog):
             parm.revertToDefaults()
 
     def accept(self):
-        self._accepted = True
-        self._undo_context.__exit__(None, None, None)
-        with hou.undos.group("Parameter Change"):
-            for i, parm in enumerate(self._parmTuple):
-                parm.set(float(self._textboxes[i].text()))
+        self._reset = False
         self.close()
 
     def close(self):
