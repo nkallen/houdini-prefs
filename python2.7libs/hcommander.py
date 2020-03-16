@@ -43,7 +43,7 @@ this = sys.modules[__name__]
 
 this.cc = None
 def handleEvent(uievent):
-    if uievent.eventtype == 'keydown' and uievent.key == 'Space':
+    if uievent.eventtype == 'keydown' and uievent.key == 'Space' and not this.cc:
         this.cc = handleEventCoroutine(uievent.editor, volatile=True)
         next(this.cc)
         return None, True
@@ -53,11 +53,7 @@ def handleEvent(uievent):
         next(this.cc)
         return None, True
 
-    # if uievent.eventtype == 'mousedown':
-    #     print uievent
-
     if this.cc:
-        # print 2, uievent
         if uievent.eventtype == 'keyup' and uievent.key == 'Space':
             return None, True
 
@@ -76,10 +72,10 @@ def handleEventCoroutine(editor, volatile=True):
     selection, which_match = window.selection()
     if type(selection) is hou.ParmTuple:
         if selection:
-            window = SetParamWindow(editor, selection, which_match)
+            window = SetParamWindow(editor, selection, which_match, volatile)
             window.show()
             window.activateWindow()
-            while window.isVisible():
+            while window.isActiveWindow():
                 uievent = (yield) # NOTE: the SetParamWindow sends a None event when closed
                 if uievent and uievent.eventtype == 'mousewheel':
                     window.delta(uievent.wheelvalue)
@@ -137,7 +133,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._item_delegate = ItemDelegate()
 
         self._list.setGridStyle(Qt.NoPen) # FIXME?
-        self._list.clicked.connect(self.accept)
+        self._list.clicked.connect(self._clicked)
         self._list.verticalHeader().hide()
         self._list.horizontalHeader().hide()
         self._list.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
@@ -202,7 +198,10 @@ class HCommanderWindow(QtWidgets.QDialog):
         for index in self._list.selectedIndexes():
             self._selection = (index.data(ParmTupleRole), (index.data(WhichMatchRole) or 1) - 1)
         self.close()
-    
+
+    def _clicked(self):
+        self.accept()
+
     def selection(self):
         return self._selection
 
@@ -480,11 +479,12 @@ which three text fields appear simultaneously.
 Note that ESC closes the window and aborts changes. But ENTER or LEFT MOUSECLICK accepts the changes.
 """
 class SetParamWindow(QtWidgets.QDialog):
-    def __init__(self, editor, parmTuple, which_match):
+    def __init__(self, editor, parmTuple, which_match, volatile):
         super(SetParamWindow, self).__init__(
             hou.qt.floatingPanelWindow(editor.pane().floatingPanel())
         )
         self._editor = editor
+        self._volatile = volatile
         # Disable undos while the user makes interactive edits. We'll renable them when ESC or RETURN is hit.
         self._undo_context = hou.undos.disabler()
         self._undo_context.__enter__()
@@ -548,6 +548,8 @@ class SetParamWindow(QtWidgets.QDialog):
             elif event.key() == Qt.Key_Escape:
                 self._reset = True
                 self.close()
+                return True
+            elif event.key() == Qt.Key_Space and self._volatile:
                 return True
 
         return False
