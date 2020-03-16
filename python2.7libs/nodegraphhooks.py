@@ -1,7 +1,7 @@
 import hou, os, sys
 from PySide2 import QtCore
 from canvaseventtypes import KeyboardEvent, MouseEvent
-import utility_hotkey_system, hcommander
+import utility_hotkey_system, hcommander, hviz
 import hcursor
 
 this = sys.modules[__name__]
@@ -15,24 +15,31 @@ def __reload_pythonlibs():
     reload(utility_hotkey_system)
     reload(hcommander)
     reload(hcursor)
+    reload(hviz)
 
 fs_watcher = QtCore.QFileSystemWatcher()
 fs_watcher.addPath(os.path.join(__pythonlibs, "nodegraphhooks.py"))
 fs_watcher.addPath(os.path.join(__pythonlibs, "utility_hotkey_system.py"))
 fs_watcher.addPath(os.path.join(__pythonlibs, "hcommander.py"))
 fs_watcher.addPath(os.path.join(__pythonlibs, "hcursor.py"))
+fs_watcher.addPath(os.path.join(__pythonlibs, "hviz.py"))
 fs_watcher.fileChanged.connect(__reload_pythonlibs)
 
 def createEventHandler(uievent, pending_actions):
+    handler, handled = hviz.createEventHandler(uievent, pending_actions)
+    if handler or handled: return handler, handled
+
     handler, handled = hcursor.createEventHandler(uievent, pending_actions)
     if handler or handled: return handler, handled
 
     handler, handled = hcommander.handleEvent(uievent)
     if handler or handled: return handler, handled
 
+    # FIXME refactor to support above interface
     if isinstance(uievent, KeyboardEvent):
         return utility_hotkey_system.invoke_action_from_key(uievent)
 
+    # ditto
     if isinstance(uievent, MouseEvent):
         if uievent.eventtype == 'mousedown' and uievent.modifierstate.alt:
             utility_hotkey_system.move_selection_to_mouse(uievent, include_ancestors=uievent.modifierstate.shift)

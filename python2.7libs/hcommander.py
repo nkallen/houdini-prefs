@@ -1,4 +1,4 @@
-import hou, nodegraph, os, csv, sys
+import hou, nodegraph, os, csv, sys, traceback
 from hou import parmTemplateType
 from collections import defaultdict
 import nodegraphbase as base
@@ -48,7 +48,7 @@ def handleEvent(uievent):
         next(this.cc)
         return None, True
 
-    if uievent.eventtype == 'keyhit' and uievent.key == 'Shift+Space':
+    if uievent.eventtype == 'keyhit' and uievent.key == 'Ctrl+Space':
         this.cc = handleEventCoroutine(uievent.editor, volatile=False)
         next(this.cc)
         return None, True

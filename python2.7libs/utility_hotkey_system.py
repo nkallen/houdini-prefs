@@ -301,7 +301,7 @@ def move_selection_to_mouse(uievent, include_ancestors=False):
     with hou.undos.group("Move nodes"):
         for item in items:
             item.setPosition(item.position() + delta)
-        
+
 # FIXME these belong in another file.
 #####################################
 
