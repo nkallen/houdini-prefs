@@ -591,9 +591,16 @@ class SetParamWindow(QtWidgets.QDialog):
         this.cc.send(None) # see coroutine note above
 
     def delta(self, delta):
+        scale = 0.1
+        f = float
+        type = self._parm_tuple.parmTemplate().type()
+        if type == parmTemplateType.Int:
+            f = int
+            scale = 1
+            
         textbox = self.focusWidget()
         parm = textbox.property("parm")
-        result = float(textbox.text()) + delta * 0.1
+        result = f(textbox.text()) + delta * scale
         textbox.setText(str(result))
         parm.set(result)
 
