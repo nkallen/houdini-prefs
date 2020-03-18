@@ -270,7 +270,7 @@ def layout(uievent, items=()):
     
     for child in items:
         position = child.position()
-        child.setPosition((math.floor(position.x()) + 0.5, -0.15 + math.floor(position.y())))
+        child.setPosition((math.floor(position.x()) + 0.5, -0.15 + math.ceil(position.y())))
 
 def drag(include_ancestors=False, dx=0, dy=0):
     items = set(hou.selectedItems())

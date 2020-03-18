@@ -107,7 +107,7 @@ class HCommanderWindow(QtWidgets.QDialog):
     
     @staticmethod
     def _filter(parmTuples):
-        valid_types = { parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String }
+        valid_types = { parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle }
         return list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
 
     def _setup_ui(self):
@@ -196,7 +196,18 @@ class HCommanderWindow(QtWidgets.QDialog):
         
     def accept(self):
         for index in self._list.selectedIndexes():
-            self._selection = (index.data(ParmTupleRole), (index.data(WhichMatchRole) or 1) - 1)
+            parm_tuple = index.data(ParmTupleRole)
+
+            if isinstance(parm_tuple, Action):
+                self._selection = (parm_tuple, 0)
+                self.close()
+                return
+
+            type = parm_tuple.parmTemplate().type()
+            if type == parmTemplateType.Toggle:
+                parm_tuple.set([int(not parm_tuple.eval()[0])])
+            else:
+                self._selection = (parm_tuple, (index.data(WhichMatchRole) or 1) - 1)
         self.close()
 
     def _clicked(self):
@@ -276,19 +287,6 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
             painter.restore()
         else:
             super(ItemDelegate, self).paint(painter, options, index)
-
-    def apply_highlight(self):
-        if not self._filter: return
-        regex = QtCore.QRegularExpression(r"a")
-
-        cursor = QtGui.QTextCursor(self.doc)
-        cursor.beginEditBlock()
-        highlightCursor = QtGui.QTextCursor(self.doc)
-        while not highlightCursor.isNull() and not highlightCursor.atEnd():
-            highlightCursor = self.doc.find(regex, highlightCursor)
-            if not highlightCursor.isNull():
-                highlightCursor.mergeCharFormat(self._highlight_format)
-        cursor.endEditBlock()
 
 ParmTupleRole = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
@@ -391,28 +389,38 @@ class ParmTupleModel(QtCore.QAbstractTableModel):
         if not index.isValid(): return None
         if not 0 <= index.row() < len(self._parmTuples): return None
 
-        parmTuple = self._parmTuples[index.row()]
+        parm_tuple = self._parmTuples[index.row()]
+        type = parm_tuple.parmTemplate().type()
+
         if role == ParmTupleRole:
-            return parmTuple
+            return parm_tuple
         if role == Qt.DisplayRole:
             if index.column() == 0:
                 return "P"
             elif index.column() == 1:
                 return self.data(index, AutoCompleteRole)
             elif index.column() == 2:
-                return ", ".join(str(v) for v in parmTuple.eval())
+                vs = []
+                for v in parm_tuple.eval():
+                    if type == hou.parmTemplateType.Float:
+                        vs.append("{:.1f}".format(v))
+                    else:
+                        vs.append(str(v))
+                return ", ".join(vs)
         
         if role == Qt.ForegroundRole:
             if index.column() == 2:
-                if parmTuple.isAtDefault():
+                if parm_tuple.isAtDefault():
                     return QtGui.QColor(Qt.darkGray)
                 else:
                     return QtGui.QColor(Qt.white)
             return None
         if role == AutoCompleteRole:
             if index.column() == 1:
-                return [parmTuple.parmTemplate().label()] + map(lambda x: x.name(), parmTuple)
-        
+                return [parm_tuple.parmTemplate().label()] + map(lambda x: x.name(), parm_tuple)
+        if role == Qt.CheckStateRole:
+            if index.column() == 1 and type == parmTemplateType.Toggle:
+                return Qt.Checked if parm_tuple.eval()[0] == 1 else Qt.Unchecked
         return None
 
 class ActionModel(QtCore.QAbstractTableModel):
@@ -554,6 +562,7 @@ class SetParamWindow(QtWidgets.QDialog):
 
         return False
 
+    # FIXME move into model
     def _update(self, value):
         parm = self.sender().property("parm")
         if value != "":

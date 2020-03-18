@@ -45,7 +45,7 @@ def visualize(uievent):
                     vs = []
                     for v in parm_tuple.eval():
                         if type == hou.parmTemplateType.Float:
-                            vs.append("{:.2f}".format(v))
+                            vs.append("{:.1f}".format(v))
                         else:
                             vs.append(str(v))
                     v = vs[0] if len(vs) == 1 else "(" + ",".join(vs) + ")"

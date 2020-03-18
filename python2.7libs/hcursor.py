@@ -20,9 +20,21 @@ cursor will move by 10 units rather than 1.
 class Cursor(object):
     def __init__(self, position=hou.Vector2(0,0)):
         self.position = position
+        self.half_extent = hou.Vector2(-0.25,-0.25)
 
     def move(self, dx=0, dy=0):
         self.position += hou.Vector2(dx, dy)
+
+    def select(self, uievent):
+        pos1 = self.position + self.half_extent
+        pos2 = self.position - self.half_extent
+        pos1 = uievent.editor.posToScreen(pos1)
+        pos2 = uievent.editor.posToScreen(pos2)
+
+        items = uievent.editor.networkItemsInBox(pos1,pos2,for_select=True)
+        items = BoxPickHandler.getItemsInBox(items)
+        uievent.editor.setPreSelectedItems(())
+        view.modifySelection(uievent, None, items)
 
 this.cursor = Cursor()
 
@@ -32,20 +44,17 @@ def createEventHandler(uievent, pending_actions):
         this.cursor.position = hou.Vector2(round(pos.x()), round(pos.y()))
         return None, False
 
-    if not (isinstance(uievent, KeyboardEvent) and uievent.eventtype == 'keyhit'):
-        return None, False
-
-    if uievent.modifierstate.alt:
-        return None, False
-        
+    if not (isinstance(uievent, KeyboardEvent) and uievent.eventtype == 'keyhit'): return None, False
+    if uievent.modifierstate.alt: return None, False
     dx, dy = _interpret(uievent)
-    if dx == 0 and dy == 0:
-        return None, False
+    if dx == 0 and dy == 0: return None, False
 
     if uievent.modifierstate.shift:
         return BoxPickHandler(uievent, this.cursor), True
 
     this.cursor.move(dx=dx, dy=dy)
+    this.cursor.select(uievent)
+
     return None, True
 
 def _interpret(uievent):
@@ -144,8 +153,8 @@ if not hasattr(this, '_OriginalEditorUpdates'):
 class EditorUpdates(_OriginalEditorUpdates):
     def applyToEditor(self, editor):
         rect = hou.BoundingRect(
-            this.cursor.position + hou.Vector2(-0.25,-0.25),
-            this.cursor.position + hou.Vector2(0.25,0.25))
+            this.cursor.position + this.cursor.half_extent,
+            this.cursor.position - this.cursor.half_extent)
         pickbox = hou.NetworkShapeBox(rect,
                 hou.ui.colorFromName('GraphPickFill'), alpha=0.3,
                 fill=True, screen_space=False)
