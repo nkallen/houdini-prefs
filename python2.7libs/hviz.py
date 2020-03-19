@@ -86,6 +86,7 @@ class Overlay(QtWidgets.QWidget):
                 button.clicked.connect(self._clicked)
                 button.show()
                 button.setProperty("parm_tuple", parm_tuple)
+                button.installEventFilter(self)
                 posx += button.frameGeometry().width()
                 if posx-initialposx > unit:
                     posx = initialposx
@@ -114,7 +115,13 @@ class Overlay(QtWidgets.QWidget):
         QtWidgets.QWidget.close(self)
 
     def _clicked(self):
-        self.close()
-        window = hcommander.SetParamWindow(self._editor, self.sender().property("parm_tuple"), 0, False)
-        window.show()
-        window.activateWindow()
+        parm_tuple = self.sender().property("parm_tuple")
+        type = parm_tuple.parmTemplate().type()
+        if type == parmTemplateType.Toggle:
+            parm_tuple.set([not parm_tuple.eval()[0]])
+            self.sender().setText(Overlay.summarize(parm_tuple))
+        else:
+            self.close()
+            window = hcommander.SetParamWindow(self._editor, parm_tuple, 0, False)
+            window.show()
+            window.activateWindow()
