@@ -246,7 +246,6 @@ class ItemDelegate(QtWidgets.QStyledItemDelegate):
                 QtWidgets.QStyle.SE_ItemViewItemText, options, options.widget)
 
             margin = style.pixelMetric(QtWidgets.QStyle.PM_FocusFrameHMargin, None, options.widget) + 1
-
             text_rect.adjust(margin, margin, 0, 0)
 
             if self._filter:
@@ -350,7 +349,7 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         if role == WhichMatchRole:
             if not self._filter: return None
         
-            bitsets = self._bitsetss[index.row()]
+            bitsets = self._bitsetss[self.mapToSource(index).row()]
             selector_bitset, selector_text = self._filter
 
             # check every character is present in any of the labels or names ...
@@ -358,6 +357,7 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
             for bitset in bitsets:
                 if bitset & selector_bitset == selector_bitset: return i
                 i += 1
+            return None
         else:
             return super(AutoCompleteModel, self).data(index, role)
 
@@ -400,6 +400,8 @@ class ParmTupleModel(QtCore.QAbstractTableModel):
             elif index.column() == 1:
                 return self.data(index, AutoCompleteRole)
             elif index.column() == 2:
+                if type == parmTemplateType.Toggle: return None
+
                 vs = []
                 for v in parm_tuple.eval():
                     if type == hou.parmTemplateType.Float:
