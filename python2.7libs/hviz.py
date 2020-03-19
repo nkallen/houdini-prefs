@@ -30,38 +30,59 @@ this.viz = None
 DPI=2 # FIXME
 
 class Foo(QtWidgets.QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, editor, parent=None):
         super(Foo, self).__init__(parent)
+        self._editor = editor
         self._setup_ui()
 
     def _setup_ui(self):
-        self.setParent(hou.qt.mainWindow(), QtCore.Qt.Tool)
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.X11BypassWindowManagerHint)
-        self.setWindowOpacity(0.7)
+        bounds = self._editor.screenBounds()
+        size = bounds.size()
+        self._xoffset = (QtGui.QCursor.pos().x()*DPI - self._editor.posToScreen(self._editor.cursorPosition()).x())/DPI
+        self._yoffset = (QtGui.QCursor.pos().y()*DPI + self._editor.posToScreen(self._editor.cursorPosition()).y())/DPI - size.y()/DPI
+        self.move(self._xoffset, self._yoffset)
+        self.resize(size.x()/DPI, size.y()/DPI)
+
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint | QtCore.Qt.X11BypassWindowManagerHint)
+        self.setStyleSheet("QWidget{background-color:rgba(1,1,1,0.1)}")
         self.grabKeyboard()
 
-        # self.show()
-    
+        for (item, rect) in self._editor.allVisibleRects(()):
+            if not isinstance(item, hou.Node): continue
+            button = QtWidgets.QPushButton(text=item.name(), parent=self)
+            posx = self._editor.posToScreen(rect.max()).x()/DPI
+            posy = size.y()/DPI - self._editor.posToScreen(rect.min()).y()/DPI
+            unit = self._editor.lengthToScreen(1)/DPI
+            marginx = unit/10
+            marginy = unit/22
+            button.move(posx + marginx, posy + marginy)
+            import math
+            font_size = math.ceil(self._editor.lengthToScreen(1)/DPI/6)
+            button.setStyleSheet("QPushButton{padding:0;font-size: " + str(font_size) + "px; background-color: rgb(38,56,76);}");
+            button.show()
+
+        self.setAutoFillBackground(False)
+
     def event(self, event):
         if event.type() == QtCore.QEvent.KeyRelease:
             self.close()
             self.releaseKeyboard()
             self.setParent(None)
             this.viz = None
+            return True
 
-        return False
+        return super(Foo, self).event(event)
+    
+    def paintEvent(self, event):
+        opt = QtWidgets.QStyleOption()
+        opt.initFrom(self)
+        painter = QtGui.QPainter(self)
+        self.style().drawPrimitive(QtWidgets.QStyle.PE_Widget, opt, painter, self)
 
 def visualize(uievent):
+    viz = Foo(uievent.editor, hou.qt.mainWindow())
 
-    viz = Foo(hou.qt.mainWindow())
-    bounds = uievent.editor.screenBounds()
-    size = bounds.size()
-    viz.resize(size.x()/DPI, size.y()/DPI) # FIXME 2dpi
 
-    xoffset = (QtGui.QCursor.pos().x()*DPI - uievent.editor.posToScreen(uievent.editor.cursorPosition()).x())/DPI
-    yoffset = (QtGui.QCursor.pos().y()*DPI + uievent.editor.posToScreen(uievent.editor.cursorPosition()).y())/DPI - size.y()/DPI
-
-    viz.move(xoffset, yoffset)
     viz.show()
 
     # viz.grabMouse()
