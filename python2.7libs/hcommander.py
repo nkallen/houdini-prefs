@@ -215,6 +215,10 @@ class HCommanderWindow(QtWidgets.QDialog):
 
     def selection(self):
         return self._selection
+    
+    def close(self):
+        QtWidgets.QDialog.close(self)
+        self.setParent(None)
 
 """
 This class represents items matching the autocomplete text in the hcommander. It highlights matching
@@ -506,7 +510,7 @@ class SetParamWindow(QtWidgets.QDialog):
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
         # NOTE: This window in every way acts like its modal. HOWEVER, modality
-        # makes live-previewing user updates impossible. So 
+        # makes live-previewing user updates impossible. So it's not.
 
         self._reset = None
         self._setup_ui(which_match)
@@ -533,11 +537,14 @@ class SetParamWindow(QtWidgets.QDialog):
     
     def wheelEvent(self, event):
         self.delta(event.angleDelta().y())
-
+    
     # Centralize saving and canceling when the window closes;
     def changeEvent(self, event):
         if event.type() == QtCore.QEvent.ActivationChange:
             if not self.isActiveWindow():
+                self.releaseMouse()
+                self.setParent(None)
+
                 if self._reset:
                     self._parm_tuple.set(self._original_value)
                     self._undo_context.__exit__(None, None, None)
@@ -576,7 +583,7 @@ class SetParamWindow(QtWidgets.QDialog):
                     return True
         return False
 
-    # FIXME move into model
+    # FIXME move into model?
     def _update(self, value):
         parm = self.sender().property("parm")
         if value != "":
@@ -587,10 +594,7 @@ class SetParamWindow(QtWidgets.QDialog):
     def accept(self):
         self._reset = False
         self.close()
-
-    def close(self):
-        super(SetParamWindow, self).close()
-        this.cc.send(None) # see coroutine note above
+        this.cc.send(None)
 
     def delta(self, delta):
         scale = 0.1

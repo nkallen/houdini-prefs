@@ -3,6 +3,7 @@ from hou import parmTemplateType
 from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Qt
 import math
+import hcommander
 
 this = sys.modules[__name__]
 
@@ -16,17 +17,11 @@ __name = "nk_parm_summary"
 
 def createEventHandler(uievent, pending_actions):
     if uievent.eventtype == 'keydown' and uievent.key == 'Shift+Space':
-        visualize(uievent)
-        # this.visualizing = True
+        viz = Overlay(uievent.editor, hou.qt.mainWindow())
+        viz.show()
         return None, True
 
-    elif uievent.eventtype == 'keyup':
-        # this.visualizing = False
-        unvisualize(uievent)
-    
     return None, False
-
-this.viz = None
 
 DPI=2 # FIXME
 
@@ -65,7 +60,6 @@ class Overlay(QtWidgets.QWidget):
         self.setStyleSheet("QWidget{background-color:rgba(1,1,1,0.1)}")
         self.grabKeyboard()
 
-
         for item, rect in self._editor.allVisibleRects(()):
             if not isinstance(item, hou.Node): continue
 
@@ -88,8 +82,10 @@ class Overlay(QtWidgets.QWidget):
                 button = QtWidgets.QPushButton(text=Overlay.summarize(parm_tuple), parent=self)
                 button.move(posx, posy)
                 font_size = math.ceil(self._editor.lengthToScreen(1)/DPI/6)
-                button.setStyleSheet("QPushButton{padding:0;font-size: " + str(font_size) + "px; background-color: rgb(38,56,76);}");
+                button.setStyleSheet("QPushButton{padding:0;font-size: " + str(font_size) + "px; background-color: rgb(38,56,76);}")
+                button.clicked.connect(self._clicked)
                 button.show()
+                button.setProperty("parm_tuple", parm_tuple)
                 posx += button.frameGeometry().width()
                 if posx-initialposx > unit:
                     posx = initialposx
@@ -100,82 +96,25 @@ class Overlay(QtWidgets.QWidget):
         self.setAutoFillBackground(False)
 
     def event(self, event):
-        if event.type() == QtCore.QEvent.KeyRelease:
+        if event.type() == QtCore.QEvent.KeyRelease and event.key() == Qt.Key_Shift:
             self.close()
-            self.releaseKeyboard()
-            self.setParent(None)
-            this.viz = None
             return True
 
-        return super(Overlay, self).event(event)
-    
+        return QtWidgets.QWidget.event(self, event)
+
     def paintEvent(self, event):
         opt = QtWidgets.QStyleOption()
         opt.initFrom(self)
         painter = QtGui.QPainter(self)
         self.style().drawPrimitive(QtWidgets.QStyle.PE_Widget, opt, painter, self)
 
-def visualize(uievent):
-    viz = Overlay(uievent.editor, hou.qt.mainWindow())
+    def close(self):
+        self.setParent(None)
+        self.releaseKeyboard()
+        QtWidgets.QWidget.close(self)
 
-
-    viz.show()
-
-    # viz.grabMouse()
-    # viz.setFocus()
-    # viz.setMouseTracking(True)
-
-    # pos, size = getViewportRenderViewPosSize()
-
-    # viz.resize(size.width(), size.height() + vizTopMaskHeight)
-    # viz.setMask(QtGui.QRegion(0, vizTopMaskHeight, size.width(), size.height()))
-
-    this.viz = viz
-
-# def pos():
-#     qtWindow = hou.qt.mainWindow()
-#     viewportWidgets = []
-#     for w in qtWindow.findChildren(QtCore.QObject):
-#         if not hasattr(w, "size"): continue
-#         print w.objectName()
-#         print w, w.size(), w.pos()
-
-def visualize2(uievent):
-    pwd = uievent.editor.pwd()
-    for child in pwd.children():
-        try:
-            if not child.parmTuple(__name):
-                template = hou.StringParmTemplate(__name, __name, 1)
-                template.hide(True)
-                child.addSpareParmTuple(template)
-            parm_tuple = child.parmTuple(__name)
-            kvps = []
-            for parm_tuple in child.parmTuples():
-                type = parm_tuple.parmTemplate().type()
-                if not type in (parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle):
-                    continue
-                if not parm_tuple.isAtDefault() and parm_tuple.name() != __name:
-                    vs = []
-                    for v in parm_tuple.eval():
-                        if type == hou.parmTemplateType.Float:
-                            vs.append("{:.1f}".format(v))
-                        else:
-                            vs.append(str(v))
-                    v = vs[0] if len(vs) == 1 else "(" + ",".join(vs) + ")"
-                    kvp = "{}={}".format(parm_tuple.name(), v)
-                    kvps.append(kvp)
-            text = ", ".join(kvps)
-            parm_tuple.set([text])
-            child.setUserData("descriptiveparm", __name)
-        except hou.OperationFailed as e:
-            print "Skipping", child
-            print "This may indicate a bug in Houdini: ", e
-
-def unvisualize(uievent):
-    return
-    pwd = uievent.editor.pwd()
-    for child in pwd.children():
-        parm_tuple = child.parmTuple(__name)
-        if parm_tuple:
-            child.removeSpareParmTuple(parm_tuple)
-    child.destroyUserData("descriptiveparm")
+    def _clicked(self):
+        self.close()
+        window = hcommander.SetParamWindow(self._editor, self.sender().property("parm_tuple"), 0, False)
+        window.show()
+        window.activateWindow()
