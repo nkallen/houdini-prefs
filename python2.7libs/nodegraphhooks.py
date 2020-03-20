@@ -25,6 +25,7 @@ fs_watcher.addPath(os.path.join(__pythonlibs, "hviz.py"))
 fs_watcher.fileChanged.connect(__reload_pythonlibs)
 
 def createEventHandler(uievent, pending_actions):
+    print uievent
     handler, handled = hviz.createEventHandler(uievent, pending_actions)
     if handler or handled: return handler, handled
 

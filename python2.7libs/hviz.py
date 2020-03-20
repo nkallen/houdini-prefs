@@ -8,12 +8,9 @@ import hcommander
 this = sys.modules[__name__]
 
 """
-Currently this is a very simple extension to display parameters of nodes directly in the network
-editor, next to the node. It shows only those params with non-default values. It creates a parm with
-a summary of the non-default key-value-paris, and hacks them into the "descriptiveparm" user attr.
+This is a simple extension to display parameters of nodes directly in the network
+editor, next to the node. It shows only those params with non-default values.
 """
-
-__name = "nk_parm_summary"
 
 def createEventHandler(uievent, pending_actions):
     if uievent.eventtype == 'keydown' and uievent.key == 'Shift+Space':
@@ -26,39 +23,26 @@ def createEventHandler(uievent, pending_actions):
 DPI=2 # FIXME
 
 class Overlay(QtWidgets.QWidget):
-    @staticmethod
-    def summarize(parm_tuple):
-        epsilon = 0.0001
-        vs = []
-        for v in parm_tuple.eval():
-            type = parm_tuple.parmTemplate().type()
-            if type == parmTemplateType.Float:
-                if v - math.floor(v) < epsilon:
-                    vs.append("{:.0f}".format(v))
-                else:
-                    vs.append("{:.1f}".format(v))
-            else:
-                vs.append(str(v))
-        v = vs[0] if len(vs) == 1 else ",".join(vs)
-        kvp = "{}={}".format(parm_tuple.name(), v)
-        return kvp[0:20]
-
     def __init__(self, editor, parent=None):
         super(Overlay, self).__init__(parent)
         self._editor = editor
         self._setup_ui()
 
     def _setup_ui(self):
+        # Create a transparent window on top of the network editor.
         bounds = self._editor.screenBounds()
         size = bounds.size()
+        self.resize(size.x()/DPI, size.y()/DPI)
+
+        # This is a hacky way to get the global/absolute position of the editor using the 3 cursor
+        # coordinate systems.
         self._xoffset = (QtGui.QCursor.pos().x()*DPI - self._editor.posToScreen(self._editor.cursorPosition()).x())/DPI
         self._yoffset = (QtGui.QCursor.pos().y()*DPI + self._editor.posToScreen(self._editor.cursorPosition()).y())/DPI - size.y()/DPI
         self.move(self._xoffset, self._yoffset)
-        self.resize(size.x()/DPI, size.y()/DPI)
 
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint | QtCore.Qt.X11BypassWindowManagerHint)
         self.setStyleSheet("QWidget{background-color:rgba(1,1,1,0.1)}")
-        self.grabKeyboard()
+        # self.grabKeyboard()
 
         for item, rect in self._editor.allVisibleRects(()):
             if not isinstance(item, hou.Node): continue
@@ -79,14 +63,13 @@ class Overlay(QtWidgets.QWidget):
                 type = parm_tuple.parmTemplate().type()
                 if not type in (parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle): continue
 
-                button = QtWidgets.QPushButton(text=Overlay.summarize(parm_tuple), parent=self)
+                button = Button(parm_tuple, parent=self)
                 button.move(posx, posy)
                 font_size = math.ceil(self._editor.lengthToScreen(1)/DPI/6)
                 button.setStyleSheet("QPushButton{padding:0;font-size: " + str(font_size) + "px; background-color: rgb(38,56,76);}")
                 button.clicked.connect(self._clicked)
                 button.show()
                 button.setProperty("parm_tuple", parm_tuple)
-                button.installEventFilter(self)
                 posx += button.frameGeometry().width()
                 if posx-initialposx > unit:
                     posx = initialposx
@@ -125,3 +108,71 @@ class Overlay(QtWidgets.QWidget):
             window = hcommander.SetParamWindow(self._editor, parm_tuple, 0, False)
             window.show()
             window.activateWindow()
+
+"""
+NOTE: Currently the value ladder stuff doesn't work because ofa  bug in Houdini
+"""
+
+class Button(QtWidgets.QPushButton):
+    epsilon = 0.01
+    @staticmethod
+    def summarize(parm_tuple):
+        vs = []
+        for v in parm_tuple.eval():
+            type = parm_tuple.parmTemplate().type()
+            if type == parmTemplateType.Float:
+                if v - math.floor(v) < Button.epsilon:
+                    vs.append("{:.0f}".format(v))
+                else:
+                    vs.append("{:.1f}".format(v))
+            else:
+                vs.append(str(v))
+        v = vs[0] if len(vs) == 1 else ",".join(vs)
+        kvp = "{}={}".format(parm_tuple.name(), v)
+        return kvp[0:20]
+
+    def __init__(self, parm_tuple, parent=None):
+        text = Button.summarize(parm_tuple)
+        super(Button, self).__init__(text=text, parent=parent)
+        self._parm_tuple = parm_tuple
+        self._pressed = False
+        self.setMouseTracking(True)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MiddleButton and len(self._parm_tuple) == 1:
+            try:
+                hou.ui.openValueLadder(
+                    self._parm_tuple.eval()[0],
+                    self._ladderchange,
+                    data_type=hou.valueLadderDataType.Float if self._parm_tuple.parmTemplate().type() == parmTemplateType.Float else hou.valueLadderDataType.Int
+                )
+            except hou.OperationFailed:
+                # A ladder is already open somewhere
+                print "here?"
+                return
+            else:
+                self._pressed = True
+        else:
+            return QtWidgets.QPushButton.mousePressEvent(self, event)
+
+    def mouseMoveEvent(self, event):
+        if self._pressed:
+            hou.ui.updateValueLadder(
+                event.globalX(),
+                event.globalY(),
+                bool(event.modifiers() & Qt.AltModifier),
+                bool(event.modifiers() & Qt.ShiftModifier)
+            )
+        else:
+            return QtWidgets.QPushButton.mouseMoveEvent(self, event)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MiddleButton and self._pressed:
+            hou.ui.closeValueLadder()
+            self._pressed = False
+        else:
+            return QtWidgets.QPushButton.mouseReleaseEvent(self, event)
+
+    def _ladderchange(self, new_value):
+        self._parm_tuple.set([new_value])
+        self.setText(str(Button.summarize(self._parm_tuple)))

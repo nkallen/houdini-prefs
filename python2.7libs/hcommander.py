@@ -78,10 +78,21 @@ def handleEventCoroutine(editor, volatile=True):
             while window.isActiveWindow():
                 uievent = (yield) # NOTE: the SetParamWindow sends a None event when closed
                 if uievent and uievent.eventtype == 'mousewheel':
-                    window.delta(uievent.wheelvalue)
+                    modifiers = __modifierstate2modifiers(uievent.modifierstate)
+                    window.delta(uievent.wheelvalue, modifiers)
     elif type(selection) is Action:
         selection.call()
     yield # one yield must correspond to the initial next() call, otherwise it throws.
+
+def __modifierstate2modifiers(modifierstate):
+    modifiers = 0
+    if modifierstate.shift:
+        modifiers |= Qt.ShiftModifier
+    if modifierstate.ctrl:
+        modifiers |= Qt.MetaModifier
+    if modifierstate.alt:
+        modifiers |= Qt.AltModifier
+    return modifiers
 
 class HCommanderWindow(QtWidgets.QDialog):
     def __init__(self, editor, volatile):
@@ -536,7 +547,7 @@ class SetParamWindow(QtWidgets.QDialog):
             self._textboxes.append(textbox)
     
     def wheelEvent(self, event):
-        self.delta(event.angleDelta().y())
+        self.delta(event.angleDelta().y(), event.modifiers())
     
     # Centralize saving and canceling when the window closes;
     def changeEvent(self, event):
@@ -558,10 +569,10 @@ class SetParamWindow(QtWidgets.QDialog):
     def eventFilter(self, obj, event):
         if event.type() == QtCore.QEvent.KeyPress:
             if event.key() == Qt.Key_Up:
-                self.delta(1)
+                self.delta(1, event.modifiers())
                 return True
             elif event.key() == Qt.Key_Down:
-                self.delta(-1)
+                self.delta(-1, event.modifiers())
                 return True
             elif event.key() == Qt.Key_Escape:
                 self._reset = True
@@ -596,14 +607,22 @@ class SetParamWindow(QtWidgets.QDialog):
         self.close()
         this.cc.send(None)
 
-    def delta(self, delta):
-        scale = 0.1
+    def delta(self, delta, modifiers):
+        scale = 0.01
         f = float
         type = self._parm_tuple.parmTemplate().type()
         if type == parmTemplateType.Int:
             f = int
             scale = 1
-            
+        else:
+            if modifiers & Qt.ShiftModifier:
+                scale = 0.001
+            if modifiers & Qt.MetaModifier:
+                scale = 0.1
+            if modifiers & Qt.AltModifier:
+                scale = 1
+            if modifiers & Qt.MetaModifier and modifiers & Qt.AltModifier:
+                scale = 10
         textbox = self.focusWidget()
         parm = textbox.property("parm")
         result = f(textbox.text()) + delta * scale
