@@ -606,7 +606,7 @@ class InputField(QtWidgets.QWidget):
         super(InputField, self).__init__(parent)
         self.parm_tuple = parm_tuple
 
-        self.setStyleSheet("background: transparent")
+        self.setStyleSheet("background: transparent; border: 1px solid black")
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
@@ -659,7 +659,7 @@ class _Label(QtWidgets.QWidget):
         self._highlight_format.setFontWeight(QtGui.QFont.Bold)
 
     def sizeHint(self):
-        return QtCore.QSize(200, 10)
+        return QtCore.QSize(220, 1)
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
@@ -692,6 +692,8 @@ class _Label(QtWidgets.QWidget):
             first, rest = labels[0], labels[1:]
             _Label.doc.setPlainText(first + ": " + " ".join(rest) + "")
 
+        padding = (self.geometry().height() - _Label.doc.size().height())/2
+        painter.translate(0, padding)
+
         ctx = QtGui.QAbstractTextDocumentLayout.PaintContext()
         _Label.doc.documentLayout().draw(painter, ctx)
-        return _Label.doc.size()
