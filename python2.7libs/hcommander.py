@@ -150,7 +150,6 @@ class HCommanderWindow(QtWidgets.QDialog):
                 parm_tuple.set([int(not parm_tuple.eval()[0])])
                 # FIXME redraw if not volatile
             else:
-                print 1111
                 self._list.edit(index)
     
     def close(self):
@@ -198,16 +197,16 @@ class ItemDelegate(QStyledItemDelegate):
 
     def createEditor(self, parent, option, index):
         which_match = index.data(WhichMatchRole)
-        field = InputField(parent, index.data(ParmTupleRole), self._filter, which_match, index.data(AutoCompleteRole))
-        return field
+        editor = InputField(parent, index.data(ParmTupleRole), self._filter, which_match, index.data(AutoCompleteRole))
 
-    def setEditorData(self, editor, index):
         which_match = index.data(WhichMatchRole)
         line_edit = editor.line_edits[(which_match or 1) - 1]
         editor.setFocusProxy(line_edit)
 
-        # line_edit.setFocus()
-        # line_edit.selectAll()
+        return editor
+
+    def setEditorData(self, editor, index):
+        pass
 
     def setModelData(self, editor, model, index):
         print "setModelData"
@@ -403,14 +402,7 @@ class CompositeModel(QtCore.QAbstractListModel):
         index = model.index(row)
         return index
 
-"""
-Command can quickly set params of the current selection. Params can be of various types,
-like String and Float; for the latter, special interaction like the arrow keys or the mouse
-scrollwheel will modify values. Special care is made for ParamTuples, e.g., XYZ parameters,
-which three text fields appear simultaneously.
 
-Note that ESC closes the window and aborts changes. But ENTER or LEFT MOUSECLICK accepts the changes.
-"""
 class SetParamWindow(QtWidgets.QDialog):
     def __init__(self, editor, parm_tuple, which_match, volatile):
         super(SetParamWindow, self).__init__(
@@ -424,38 +416,6 @@ class SetParamWindow(QtWidgets.QDialog):
         self._parm_tuple = parm_tuple
         self._original_value = parm_tuple.eval()
 
-        self.setMinimumWidth(500)
-        self.setMinimumHeight(100)
-        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
-        self.setWindowOpacity(0.95)
-        # NOTE: This window in every way acts like its modal. HOWEVER, modality
-        # makes live-previewing user updates impossible. So it's not.
-
-        self._reset = None
-        self._setup_ui(which_match)
-
-    def _setup_ui(self, which_match):
-        layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
-        self.setLayout(layout)
-        self._textboxes = []
-        for i, parm in enumerate(self._parm_tuple):
-            textbox = QtWidgets.QLineEdit(self)
-            textbox.textEdited.connect(self._update)
-            textbox.returnPressed.connect(self.accept)
-            textbox.setStyleSheet("font-size: 18px; height: 24px; border: none; background: transparent")
-            textbox.setText(str(self._parm_tuple.eval()[i]))
-            textbox.selectAll()
-            textbox.installEventFilter(self)
-            textbox.setProperty("parm", parm)
-            layout.addWidget(textbox)
-            if i == which_match:
-                textbox.setFocus()
-            self._textboxes.append(textbox)
-    
-    def wheelEvent(self, event):
-        self.delta(event.angleDelta().y(), event.modifiers())
     
     # Centralize saving and canceling when the window closes;
     def changeEvent(self, event):
@@ -473,35 +433,6 @@ class SetParamWindow(QtWidgets.QDialog):
                         for i, parm in enumerate(self._parm_tuple):
                             parm.set(float(self._textboxes[i].text()))
 
-    _foo = {Qt.Key_X: [1,0,0,0], Qt.Key_Y: [0,1,0,0], Qt.Key_Z: [0,0,1,0], Qt.Key_W: [0,0,0,1]}
-    def eventFilter(self, obj, event):
-        if event.type() == QtCore.QEvent.KeyPress:
-            if event.key() == Qt.Key_Up:
-                self.delta(1, event.modifiers())
-                return True
-            elif event.key() == Qt.Key_Down:
-                self.delta(-1, event.modifiers())
-                return True
-            elif event.key() == Qt.Key_Escape:
-                self._reset = True
-                self.close()
-                return True
-            elif event.key() == Qt.Key_Space and self._volatile:
-                return True
-            elif self._parm_tuple.parmTemplate().namingScheme() == hou.parmNamingScheme.XYZW:
-                if event.key() in SetParamWindow._foo:
-                    l = len(self._parm_tuple)
-                    self._parm_tuple.set(SetParamWindow._foo[event.key()][0:l])
-                    for i, parm in enumerate(self._parm_tuple):
-                        textbox = self._textboxes[i]
-                        textbox.setText(str(self._parm_tuple.eval()[i]))
-                        if SetParamWindow._foo[event.key()][i] == 1:
-                            textbox.selectAll()
-                            textbox.setFocus()
-                        
-                    return True
-        return False
-
     # FIXME move into model?
     def _update(self, value):
         parm = self.sender().property("parm")
@@ -514,28 +445,6 @@ class SetParamWindow(QtWidgets.QDialog):
         self._reset = False
         self.close()
         # this.cc.send(None)
-
-    def delta(self, delta, modifiers):
-        scale = 0.01
-        f = float
-        type = self._parm_tuple.parmTemplate().type()
-        if type == parmTemplateType.Int:
-            f = int
-            scale = 1
-        else:
-            if modifiers & Qt.ShiftModifier:
-                scale = 0.001
-            if modifiers & Qt.MetaModifier:
-                scale = 0.1
-            if modifiers & Qt.AltModifier:
-                scale = 1
-            if modifiers & Qt.MetaModifier and modifiers & Qt.AltModifier:
-                scale = 10
-        textbox = self.focusWidget()
-        parm = textbox.property("parm")
-        result = f(textbox.text()) + delta * scale
-        textbox.setText(str(result))
-        parm.set(result)
 
 """
 ACTIONS are loaded from a CSV config file. Actions can apply EITHER to selected objects,
@@ -627,28 +536,75 @@ class InputField(QtWidgets.QWidget):
         self.line_edits = []
         for i, parm in enumerate(parm_tuple):
             line_edit = QtWidgets.QLineEdit(self)
-            self.line_edits.append(line_edit)
 
             line_edit.setStyleSheet("border: 1px solid black; background: transparent")
             line_edit.setText(str(parm_tuple.eval()[i]))
-
+            line_edit.setProperty("parm", parm)
+            line_edit.installEventFilter(self)
+            # line_edit.textEdited.connect(self._update)
+            # line_edit.returnPressed.connect(self.accept)
             # line_edit.textChanged.connect(self._handleTextChanged)
             # line_edit.textEdited.connect(self._handleLineEditChanged)
             # line_edit.editingFinished.connect(self._handleEditingFinished)
+            self.line_edits.append(line_edit)
             layout.addWidget(line_edit)
         self.setLayout(layout)
 
-    def _handleLineEditChanged(self, text):
-        self.hasPendingChanges = True
+    _axis = {Qt.Key_X: [1,0,0,0], Qt.Key_Y: [0,1,0,0], Qt.Key_Z: [0,0,1,0], Qt.Key_W: [0,0,0,1]}
+    def eventFilter(self, obj, event):
+        if event.type() == QtCore.QEvent.KeyPress:
+            if event.key() == Qt.Key_Up:
+                self.delta(1, event.modifiers())
+                return True
+            elif event.key() == Qt.Key_Down:
+                self.delta(-1, event.modifiers())
+                return True
+            # elif event.key() == Qt.Key_Escape:
+            #     self._reset = True
+            #     self.close()
+            #     return True
+            # elif event.key() == Qt.Key_Space and self._volatile:
+            #     return True
+            elif self.parm_tuple.parmTemplate().namingScheme() == hou.parmNamingScheme.XYZW:
+                if event.key() in InputField._axis:
+                    l = len(self.parm_tuple)
+                    self.parm_tuple.set(InputField._axis[event.key()][0:l])
+                    for i, parm in enumerate(self.parm_tuple):
+                        textbox = self.line_edits[i]
+                        textbox.setText(str(self.parm_tuple.eval()[i]))
+                        if InputField._axis[event.key()][i] == 1:
+                            textbox.selectAll()
+                            textbox.setFocus()
+                        
+                    return True
+        return False
 
-    def _handleEditingFinished(self):
-        if self.hasPendingChanges:
-            self.valueChanged.emit()
+    def wheelEvent(self, event):
+        print "wheel event"
+        self.delta(event.angleDelta().y(), event.modifiers())
+        return True
 
-        self.hasPendingChanges = False
-
-    def _handleTextChanged(self, text):
-        self.valueChanged.emit()
+    def delta(self, delta, modifiers):
+        scale = 0.01
+        f = float
+        type = self.parm_tuple.parmTemplate().type()
+        if type == parmTemplateType.Int:
+            f = int
+            scale = 1
+        else:
+            if modifiers & Qt.ShiftModifier:
+                scale = 0.001
+            if modifiers & Qt.MetaModifier:
+                scale = 0.1
+            if modifiers & Qt.AltModifier:
+                scale = 1
+            if modifiers & Qt.MetaModifier and modifiers & Qt.AltModifier:
+                scale = 10
+        textbox = self.focusWidget()
+        parm = textbox.property("parm")
+        result = f(textbox.text()) + delta * scale
+        textbox.setText(str(result))
+        parm.set(result)
                 
 class _Label(QtWidgets.QWidget):
     doc = QtGui.QTextDocument()
