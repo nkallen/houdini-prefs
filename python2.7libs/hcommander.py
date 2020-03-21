@@ -87,7 +87,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._item_delegate = ItemDelegate(self)
         self._list.setItemDelegate(self._item_delegate)
 
-        # self._list.clicked.connect(self.accept)
+        self._list.clicked.connect(self.accept)
         self._list.setSelectionMode(QAbstractItemView.SingleSelection)
         self._list.setEditTriggers(QAbstractItemView.SelectedClicked | QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
 
@@ -132,18 +132,14 @@ class HCommanderWindow(QtWidgets.QDialog):
 
     def _cursor(self, action, modifiers):
         index = self._list.moveCursor(action, modifiers)
-        path = index.data(Qt.EditRole)
         self._list.setCurrentIndex(index)
         
     def accept(self):
-        print "in accept"
         if not self._list.selectedIndexes():
             self.reject()
             return
 
         index = self._list.selectedIndexes()[0]
-        self._list.edit(index)
-        return
         parm_tuple = index.data(ParmTupleRole)
 
         if isinstance(parm_tuple, Action):
@@ -152,8 +148,10 @@ class HCommanderWindow(QtWidgets.QDialog):
             type = parm_tuple.parmTemplate().type()
             if type == parmTemplateType.Toggle:
                 parm_tuple.set([int(not parm_tuple.eval()[0])])
+                # FIXME redraw if not volatile
             else:
-                self.selection = (parm_tuple, (index.data(WhichMatchRole) or 1) - 1)
+                print 1111
+                self._list.edit(index)
     
     def close(self):
         print "in close"
@@ -199,12 +197,18 @@ class ItemDelegate(QStyledItemDelegate):
         painter.restore()
 
     def createEditor(self, parent, option, index):
-        field = InputField(parent, index.data(ParmTupleRole), self._filter, index.data(WhichMatchRole), index.data(AutoCompleteRole))
+        which_match = index.data(WhichMatchRole)
+        field = InputField(parent, index.data(ParmTupleRole), self._filter, which_match, index.data(AutoCompleteRole))
         return field
 
     def setEditorData(self, editor, index):
-        print "setEditorData"
-    
+        which_match = index.data(WhichMatchRole)
+        line_edit = editor.line_edits[(which_match or 1) - 1]
+        editor.setFocusProxy(line_edit)
+
+        # line_edit.setFocus()
+        # line_edit.selectAll()
+
     def setModelData(self, editor, model, index):
         print "setModelData"
         QStyledItemDelegate.setModelData(self, editor, model, index)
@@ -605,11 +609,10 @@ class InputField(QtWidgets.QWidget):
     def __init__(self, parent, parm_tuple, filter, which_match, autocompletes):
         super(InputField, self).__init__(parent)
         self.parm_tuple = parm_tuple
+        self._which_match = which_match
 
-        self.setStyleSheet("background: transparent; border: 1px solid black")
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
 
         icon = InputField.type2icon(parm_tuple.parmTemplate().type())
         if icon:
@@ -623,15 +626,16 @@ class InputField(QtWidgets.QWidget):
 
         self.line_edits = []
         for i, parm in enumerate(parm_tuple):
-            self.line_edits.append(QtWidgets.QLineEdit(self))
+            line_edit = QtWidgets.QLineEdit(self)
+            self.line_edits.append(line_edit)
 
-            self.line_edits[i].setStyleSheet("border: 1px solid black; background: transparent;")
-            self.line_edits[i].setText(str(parm_tuple.eval()[i]))
+            line_edit.setStyleSheet("border: 1px solid black; background: transparent")
+            line_edit.setText(str(parm_tuple.eval()[i]))
 
-            # self.line_edits[i].textChanged.connect(self._handleTextChanged)
-            # self.line_edits[i].textEdited.connect(self._handleLineEditChanged)
-            # self.line_edits[i].editingFinished.connect(self._handleEditingFinished)
-            layout.addWidget(self.line_edits[i])
+            # line_edit.textChanged.connect(self._handleTextChanged)
+            # line_edit.textEdited.connect(self._handleLineEditChanged)
+            # line_edit.editingFinished.connect(self._handleEditingFinished)
+            layout.addWidget(line_edit)
         self.setLayout(layout)
 
     def _handleLineEditChanged(self, text):
@@ -645,7 +649,7 @@ class InputField(QtWidgets.QWidget):
 
     def _handleTextChanged(self, text):
         self.valueChanged.emit()
-
+                
 class _Label(QtWidgets.QWidget):
     doc = QtGui.QTextDocument()
     doc.setDocumentMargin(0)
