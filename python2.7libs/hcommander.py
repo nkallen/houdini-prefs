@@ -48,7 +48,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._volatile = volatile
 
         self.editor = editor
-        self.setMinimumWidth(500)
+        self.setMinimumWidth(700)
         self.setMinimumHeight(300)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
@@ -180,10 +180,10 @@ class ItemDelegate(QStyledItemDelegate):
         painter.save()
         style = option.widget.style()
         self.initStyleOption(option, index)
-        marginx = style.pixelMetric(QtWidgets.QStyle.PM_FocusFrameHMargin, None, option.widget) + 1
         painter.setClipRect(option.rect)
 
-        label = index.data(ParmTupleRole).parmTemplate().label()
+        parm_tuple = index.data(ParmTupleRole)
+        label = parm_tuple.parmTemplate().label()
         
         # Draw the background, icon, and checkbox, but not the label
         option.text = ""
@@ -198,9 +198,9 @@ class ItemDelegate(QStyledItemDelegate):
         docsize = self._paintLabel(painter, index)
 
         # paint the widget for the values
-        painter.translate(docsize.width() + marginx, 0)
-        field = InputField(InputField.FloatType, 1, label)
-        field.setGeometry(text_rect.adjusted(docsize.width() + marginx, 0, 0, 0))
+        painter.translate(200, 0)
+        field = InputField(parm_tuple)
+        field.setGeometry(text_rect.adjusted(200, 0, 0, 0))
         field.render(painter, QtCore.QPoint(0, 0), QtGui.QRegion(0, 0, option.rect.width(), option.rect.height()), QWidget.RenderFlag.DrawChildren)
 
         painter.restore()
@@ -658,62 +658,27 @@ __fs_watcher.addPath(Action.configfile)
 __fs_watcher.fileChanged.connect(Action.load)
 
 class InputField(QtWidgets.QWidget):
-    IntegerType = 0
-    FloatType = 1
-    StringType = 2
-
     valueChanged = QtCore.Signal()
-    hotkeyInvoked = QtCore.Signal(str)
 
-    def __init__(self, data_type, num_components, label=None, mouse_hotkeys={}):
+    def __init__(self, parm_tuple):
         super(InputField, self).__init__()
+        self.parm_tuple = parm_tuple
 
-        assert data_type in (
-            InputField.IntegerType,
-            InputField.FloatType,
-            InputField.StringType)
-        self.dataType = data_type
-
-        self.setStyleSheet("margin: 0; padding: 0; border: 1px solid black")
-
-        # We support between 1 and 4 components.
-        assert num_components >= 1 and num_components <= 4
-        self.numComponents = num_components
-
-        self.mouse_hotkeys = mouse_hotkeys
-
-        # For keeping track of whether any of the line edits
-        # has a pending text change.
-        self.hasPendingChanges = False
-
+        self.setStyleSheet("border: 1px solid black; background: transparent")
         layout = QtWidgets.QHBoxLayout()
-        layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
-
-        # Create (optional) label.
-        # if label is not None and label != "":
-        #     layout.addWidget(hou.qt.FieldLabel(label))
-
-        # Create line edit widgets.
-        self.lineEdits = []
-        for i in range(self.numComponents):
-            self.lineEdits.append(_LineEdit(self.dataType,
-                                            mouse_hotkeys=self.mouse_hotkeys))
-
-            # Set default text.
-            if self.dataType in (InputField.IntegerType, InputField.FloatType):
-                self.lineEdits[i].setText("0")
-
-            # Listen for text changes in the line edit.
-            self.lineEdits[i].textChanged.connect(self._handleTextChanged)
-            self.lineEdits[i].textEdited.connect(self._handleLineEditChanged)
-            self.lineEdits[i].editingFinished.connect(
-                self._handleEditingFinished)
-            self.lineEdits[i].hotkeyInvoked.connect(self.hotkeyInvoked.emit)
-
-            layout.addWidget(self.lineEdits[i])
-
+        layout.setSpacing(10)
         self.setLayout(layout)
+
+        self.line_edits = []
+        for i, parm in enumerate(parm_tuple):
+            self.line_edits.append(QtWidgets.QLineEdit(self))
+
+            self.line_edits[i].setText(str(parm_tuple.eval()[i]))
+            self.line_edits[i].textChanged.connect(self._handleTextChanged)
+            self.line_edits[i].textEdited.connect(self._handleLineEditChanged)
+            self.line_edits[i].editingFinished.connect(self._handleEditingFinished)
+            layout.addWidget(self.line_edits[i])
 
     def setValue(self, value, index=0):
         assert index >= 0 and index <= self.numComponents
@@ -729,7 +694,7 @@ class InputField(QtWidgets.QWidget):
         strvalue = str(value)
         if type(value) is float:
             strvalue = strvalue.rstrip('0').rstrip('.')
-        self.lineEdits[index].setText(strvalue)
+        self.line_edits[index].setText(strvalue)
 
     def setValues(self, values):
         # First pass.  Check value types.
@@ -742,14 +707,14 @@ class InputField(QtWidgets.QWidget):
 
         # Second pass.  Set values.
         for i in range(self.numComponents):
-            self.lineEdits[i].setText(str(values[i]))
+            self.line_edits[i].setText(str(values[i]))
 
             # Do this so that the beginning of the text is visible.
-            self.lineEdits[i].setCursorPosition(0)
+            self.line_edits[i].setCursorPosition(0)
 
     def value(self, index=0):
         assert index >= 0 and index <= self.numComponents
-        text = self.lineEdits[index].text()
+        text = self.line_edits[index].text()
 
         if self.dataType == InputField.IntegerType:
             try:
