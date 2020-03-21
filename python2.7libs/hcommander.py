@@ -206,11 +206,18 @@ class ItemDelegate(QStyledItemDelegate):
         return editor
 
     def setEditorData(self, editor, index):
-        pass
+        # Disable undos while the user makes interactive edits
+        editor._undo_context = hou.undos.disabler()
+        editor._undo_context.__enter__()
+        parm_tuple = index.data(ParmTupleRole)
+        editor._original_value = parm_tuple.eval()
 
     def setModelData(self, editor, model, index):
         print "setModelData"
-        QStyledItemDelegate.setModelData(self, editor, model, index)
+        editor._undo_context.__exit__(None, None, None)
+        with hou.undos.group("Parameter Change"):
+            for i, parm in enumerate(editor.parm_tuple):
+                parm.set(float(editor.line_edits[i].text()))
 
     def commitAndCloseEditor(self):
         print "commit and close"
@@ -220,6 +227,9 @@ class ItemDelegate(QStyledItemDelegate):
         # and need to write our changed back to the model.
         self.commitData.emit(editor)
         self.closeEditor.emit(editor)
+    
+    def closeEditor(self):
+        print "here"
 
 ParmTupleRole = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
@@ -410,11 +420,6 @@ class SetParamWindow(QtWidgets.QDialog):
         )
         self._editor = editor
         self._volatile = volatile
-        # Disable undos while the user makes interactive edits. We'll renable them when ESC or RETURN is hit.
-        self._undo_context = hou.undos.disabler()
-        self._undo_context.__enter__()
-        self._parm_tuple = parm_tuple
-        self._original_value = parm_tuple.eval()
 
     
     # Centralize saving and canceling when the window closes;
@@ -503,16 +508,10 @@ class InputField(QtWidgets.QWidget):
     def type2icon(type):
         typename = type.name()
         iconname = None
-        if typename == "Float":
-            iconname = "DATATYPES_float"
-        elif typename == "Int":
-            iconname = "DATATYPES_int"
-        elif typename == "Toggle":
-            iconname = "DATATYPES_boolean"
-        elif typename == "String":
-            iconname = "DATATYPES_string"
-        else:
-            print typename
+        if typename == "Float":    iconname = "DATATYPES_float"
+        elif typename == "Int":    iconname = "DATATYPES_int"
+        elif typename == "Toggle": iconname = "DATATYPES_boolean"
+        elif typename == "String": iconname = "DATATYPES_string"
         return hou.qt.Icon(iconname)
         
     def __init__(self, parent, parm_tuple, filter, which_match, autocompletes):
@@ -541,7 +540,7 @@ class InputField(QtWidgets.QWidget):
             line_edit.setText(str(parm_tuple.eval()[i]))
             line_edit.setProperty("parm", parm)
             line_edit.installEventFilter(self)
-            # line_edit.textEdited.connect(self._update)
+            line_edit.textEdited.connect(self._update)
             # line_edit.returnPressed.connect(self.accept)
             # line_edit.textChanged.connect(self._handleTextChanged)
             # line_edit.textEdited.connect(self._handleLineEditChanged)
@@ -605,7 +604,22 @@ class InputField(QtWidgets.QWidget):
         result = f(textbox.text()) + delta * scale
         textbox.setText(str(result))
         parm.set(result)
-                
+    
+    def _update(self, value):
+        type = self.parm_tuple.parmTemplate().type()
+        parm = self.sender().property("parm")
+        if value != "":
+            if type == parmTemplateType.Int:
+                try: parm.set(int(self.sender().text()))
+                except: pass
+            elif type == parmTemplateType.Float:
+                try: parm.set(float(self.sender().text()))
+                except: pass
+            elif type == parmTemplateType.String:
+                parm.set(self.sender().text())
+        else:
+            parm.revertToDefaults()
+
 class _Label(QtWidgets.QWidget):
     doc = QtGui.QTextDocument()
     doc.setDocumentMargin(0)
