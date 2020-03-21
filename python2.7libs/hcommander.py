@@ -153,7 +153,6 @@ class HCommanderWindow(QtWidgets.QDialog):
                 self._list.edit(index)
     
     def close(self):
-        print "in close"
         QtWidgets.QDialog.close(self)
         self.setParent(None)
         this.window = None
@@ -203,7 +202,8 @@ class ItemDelegate(QStyledItemDelegate):
         line_edit = editor.line_edits[(which_match or 1) - 1]
         editor.setFocusProxy(line_edit)
 
-        editor.editingFinished.connect(self.commitAndCloseEditor)
+        editor.editingFinished.connect(self.editingFinished)
+        editor.valueChanged.connect(self.valueChanged)
 
         return editor
 
@@ -219,18 +219,32 @@ class ItemDelegate(QStyledItemDelegate):
         editor.undo_context.__exit__(None, None, None)
         with hou.undos.group("Parameter Change"):
             for i, parm in enumerate(editor.parm_tuple):
-                parm.set(float(editor.line_edits[i].text()))
+                self.valueChanged(parm, editor.line_edits[i].text())
     
     def _closeEditor(self, editor, edit_hint):
         if edit_hint == QAbstractItemDelegate.EndEditHint.RevertModelCache:
             editor.parm_tuple.set(editor.original_value)
             editor.undo_context.__exit__(None, None, None)
 
-    def commitAndCloseEditor(self):
+    def editingFinished(self):
         editor = self.sender()
-
         self.commitData.emit(editor)
         self.closeEditor.emit(editor)
+    
+    def valueChanged(self, parm, value):
+        type = self.sender().parm_tuple.parmTemplate().type()
+        if value != "":
+            if type == parmTemplateType.Int:
+                try: parm.set(int(value))
+                except: pass
+            elif type == parmTemplateType.Float:
+                try: parm.set(float(value))
+                except: pass
+            elif type == parmTemplateType.String:
+                parm.set(value)
+        else:
+            parm.revertToDefaults()
+
         
 ParmTupleRole = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
@@ -464,7 +478,7 @@ __fs_watcher.addPath(Action.configfile)
 __fs_watcher.fileChanged.connect(Action.load)
 
 class InputField(QtWidgets.QWidget):
-    valueChanged = QtCore.Signal()
+    valueChanged = QtCore.Signal(hou.Parm, str)
     editingFinished = QtCore.Signal()
 
     @staticmethod
@@ -504,26 +518,21 @@ class InputField(QtWidgets.QWidget):
             line_edit.setProperty("parm", parm)
             line_edit.installEventFilter(self)
             line_edit.textEdited.connect(self._update)
-            # line_edit.returnPressed.connect(self.accept)
-            # line_edit.textChanged.connect(self._handleTextChanged)
-            # line_edit.textEdited.connect(self._handleLineEditChanged)
-            # line_edit.editingFinished.connect(self._handleEditingFinished)
             self.line_edits.append(line_edit)
             layout.addWidget(line_edit)
         self.setLayout(layout)
 
     _axis = {Qt.Key_X: [1,0,0,0], Qt.Key_Y: [0,1,0,0], Qt.Key_Z: [0,0,1,0], Qt.Key_W: [0,0,0,1]}
     def eventFilter(self, obj, event):
-        if event.type() == QtCore.QEvent.KeyPress:
+        if event.type() == QtCore.QEvent.Type.Wheel: # FIXME NOT WORKING!!!!!
+            self.delta(event.angleDelta().y(), event.modifiers())
+            return True
+        elif event.type() == QtCore.QEvent.KeyPress:
             if event.key() == Qt.Key_Up:
                 self.delta(1, event.modifiers())
                 return True
             elif event.key() == Qt.Key_Down:
                 self.delta(-1, event.modifiers())
-                return True
-            # elif event.key() == Qt.Key_Escape:
-                # self._reset = True
-            #     self.close()
                 return True
             # elif event.key() == Qt.Key_Space and self._volatile:
             #     return True
@@ -541,12 +550,6 @@ class InputField(QtWidgets.QWidget):
                     return True
         return False
 
-    # FIXME NOT WORKING YET
-    def wheelEvent(self, event):
-        print "wheel event"
-        self.delta(event.angleDelta().y(), event.modifiers())
-        return True
-
     def delta(self, delta, modifiers):
         scale = 0.01
         f = float
@@ -555,14 +558,10 @@ class InputField(QtWidgets.QWidget):
             f = int
             scale = 1
         else:
-            if modifiers & Qt.ShiftModifier:
-                scale = 0.001
-            if modifiers & Qt.MetaModifier:
-                scale = 0.1
-            if modifiers & Qt.AltModifier:
-                scale = 1
-            if modifiers & Qt.MetaModifier and modifiers & Qt.AltModifier:
-                scale = 10
+            if modifiers & Qt.ShiftModifier: scale = 0.001
+            if modifiers & Qt.MetaModifier: scale = 0.1
+            if modifiers & Qt.AltModifier: scale = 1
+            if modifiers & Qt.MetaModifier and modifiers & Qt.AltModifier: scale = 10
         textbox = self.focusWidget()
         parm = textbox.property("parm")
         result = f(textbox.text()) + delta * scale
@@ -570,19 +569,8 @@ class InputField(QtWidgets.QWidget):
         parm.set(result)
     
     def _update(self, value):
-        type = self.parm_tuple.parmTemplate().type()
         parm = self.sender().property("parm")
-        if value != "":
-            if type == parmTemplateType.Int:
-                try: parm.set(int(self.sender().text()))
-                except: pass
-            elif type == parmTemplateType.Float:
-                try: parm.set(float(self.sender().text()))
-                except: pass
-            elif type == parmTemplateType.String:
-                parm.set(self.sender().text())
-        else:
-            parm.revertToDefaults()
+        self.valueChanged.emit(parm, value)
 
     def event(self, event):
         if event.type() == QtCore.QEvent.Type.WindowDeactivate:
