@@ -25,24 +25,23 @@ fs_watcher.addPath(os.path.join(__pythonlibs, "hviz.py"))
 fs_watcher.fileChanged.connect(__reload_pythonlibs)
 
 def createEventHandler(uievent, pending_actions):
-    print uievent
-    handler, handled = hviz.createEventHandler(uievent, pending_actions)
+    # handler, handled = hviz.createEventHandler(uievent, pending_actions)
+    # if handler or handled: return handler, handled
+
+    # handler, handled = hcursor.createEventHandler(uievent, pending_actions)
+    # if handler or handled: return handler, handled
+
+    handler, handled = hcommander.handleEvent(uievent, pending_actions)
     if handler or handled: return handler, handled
 
-    handler, handled = hcursor.createEventHandler(uievent, pending_actions)
-    if handler or handled: return handler, handled
+    # # FIXME refactor to support above interface
+    # if isinstance(uievent, KeyboardEvent):
+    #     return utility_hotkey_system.invoke_action_from_key(uievent)
 
-    handler, handled = hcommander.handleEvent(uievent)
-    if handler or handled: return handler, handled
-
-    # FIXME refactor to support above interface
-    if isinstance(uievent, KeyboardEvent):
-        return utility_hotkey_system.invoke_action_from_key(uievent)
-
-    # ditto
-    if isinstance(uievent, MouseEvent):
-        if uievent.eventtype == 'mousedown' and uievent.modifierstate.alt:
-            utility_hotkey_system.move_selection_to_mouse(uievent, include_ancestors=uievent.modifierstate.shift)
-            return None, True
+    # # ditto
+    # if isinstance(uievent, MouseEvent):
+    #     if uievent.eventtype == 'mousedown' and uievent.modifierstate.alt:
+    #         utility_hotkey_system.move_selection_to_mouse(uievent, include_ancestors=uievent.modifierstate.shift)
+    #         return None, True
 
     return None, False

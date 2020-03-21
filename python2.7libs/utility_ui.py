@@ -9,6 +9,17 @@ from PySide2 import QtCore, QtWidgets, QtGui
 from canvaseventtypes import *
 
 
+def modifierstate2modifiers(modifierstate):
+    modifiers = 0
+    if modifierstate.shift:
+        modifiers |= Qt.ShiftModifier
+    if modifierstate.ctrl:
+        modifiers |= Qt.MetaModifier
+    if modifierstate.alt:
+        modifiers |= Qt.AltModifier
+    return modifiers
+
+
 def getWidgetByName(name):
     hasHandle = hasattr(hou.session, name)
     if not hasHandle or (hasHandle and getattr(hou.session, name) and not shiboken2.isValid(getattr(hou.session, name))):
