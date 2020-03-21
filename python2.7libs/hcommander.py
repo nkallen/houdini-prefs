@@ -7,7 +7,7 @@ from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Qt
 from nodegraphbase import EventHandler
 import utility_ui
-from PySide2.QtWidgets import QAbstractItemView, QStyledItemDelegate, QWidget, QStyle
+from PySide2.QtWidgets import QAbstractItemView, QStyledItemDelegate, QWidget, QStyle, QAbstractItemDelegate
 from PySide2.QtCore import Signal
 
 """
@@ -203,34 +203,35 @@ class ItemDelegate(QStyledItemDelegate):
         line_edit = editor.line_edits[(which_match or 1) - 1]
         editor.setFocusProxy(line_edit)
 
+        editor.editingFinished.connect(self.commitAndCloseEditor)
+
         return editor
 
     def setEditorData(self, editor, index):
         # Disable undos while the user makes interactive edits
-        editor._undo_context = hou.undos.disabler()
-        editor._undo_context.__enter__()
+        editor.undo_context = hou.undos.disabler()
+        editor.undo_context.__enter__()
         parm_tuple = index.data(ParmTupleRole)
-        editor._original_value = parm_tuple.eval()
+        editor.original_value = parm_tuple.eval()
+        self.closeEditor.connect(self._closeEditor)
 
     def setModelData(self, editor, model, index):
-        print "setModelData"
-        editor._undo_context.__exit__(None, None, None)
+        editor.undo_context.__exit__(None, None, None)
         with hou.undos.group("Parameter Change"):
             for i, parm in enumerate(editor.parm_tuple):
                 parm.set(float(editor.line_edits[i].text()))
+    
+    def _closeEditor(self, editor, edit_hint):
+        if edit_hint == QAbstractItemDelegate.EndEditHint.RevertModelCache:
+            editor.parm_tuple.set(editor.original_value)
+            editor.undo_context.__exit__(None, None, None)
 
     def commitAndCloseEditor(self):
-        print "commit and close"
         editor = self.sender()
 
-        # The commitData signal must be emitted when we've finished editing
-        # and need to write our changed back to the model.
         self.commitData.emit(editor)
         self.closeEditor.emit(editor)
-    
-    def closeEditor(self):
-        print "here"
-
+        
 ParmTupleRole = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
 WhichMatchRole = Qt.UserRole + 2
@@ -412,45 +413,6 @@ class CompositeModel(QtCore.QAbstractListModel):
         index = model.index(row)
         return index
 
-
-class SetParamWindow(QtWidgets.QDialog):
-    def __init__(self, editor, parm_tuple, which_match, volatile):
-        super(SetParamWindow, self).__init__(
-            hou.qt.floatingPanelWindow(editor.pane().floatingPanel())
-        )
-        self._editor = editor
-        self._volatile = volatile
-
-    
-    # Centralize saving and canceling when the window closes;
-    def changeEvent(self, event):
-        if event.type() == QtCore.QEvent.ActivationChange:
-            if not self.isActiveWindow():
-                self.releaseMouse()
-                self.setParent(None)
-
-                if self._reset:
-                    self._parm_tuple.set(self._original_value)
-                    self._undo_context.__exit__(None, None, None)
-                else:
-                    self._undo_context.__exit__(None, None, None)
-                    with hou.undos.group("Parameter Change"):
-                        for i, parm in enumerate(self._parm_tuple):
-                            parm.set(float(self._textboxes[i].text()))
-
-    # FIXME move into model?
-    def _update(self, value):
-        parm = self.sender().property("parm")
-        if value != "":
-            parm.set(float(self.sender().text()))
-        else:
-            parm.revertToDefaults()
-
-    def accept(self):
-        self._reset = False
-        self.close()
-        # this.cc.send(None)
-
 """
 ACTIONS are loaded from a CSV config file. Actions can apply EITHER to selected objects,
 e.g., "orient a line in X/Y/Z"; or they can be global, e.g., "turn on wireframe mode".
@@ -503,6 +465,7 @@ __fs_watcher.fileChanged.connect(Action.load)
 
 class InputField(QtWidgets.QWidget):
     valueChanged = QtCore.Signal()
+    editingFinished = QtCore.Signal()
 
     @staticmethod
     def type2icon(type):
@@ -559,9 +522,9 @@ class InputField(QtWidgets.QWidget):
                 self.delta(-1, event.modifiers())
                 return True
             # elif event.key() == Qt.Key_Escape:
-            #     self._reset = True
+                # self._reset = True
             #     self.close()
-            #     return True
+                return True
             # elif event.key() == Qt.Key_Space and self._volatile:
             #     return True
             elif self.parm_tuple.parmTemplate().namingScheme() == hou.parmNamingScheme.XYZW:
@@ -578,6 +541,7 @@ class InputField(QtWidgets.QWidget):
                     return True
         return False
 
+    # FIXME NOT WORKING YET
     def wheelEvent(self, event):
         print "wheel event"
         self.delta(event.angleDelta().y(), event.modifiers())
@@ -619,6 +583,11 @@ class InputField(QtWidgets.QWidget):
                 parm.set(self.sender().text())
         else:
             parm.revertToDefaults()
+
+    def event(self, event):
+        if event.type() == QtCore.QEvent.Type.WindowDeactivate:
+            self.editingFinished.emit()
+        return QtWidgets.QWidget.event(self, event)
 
 class _Label(QtWidgets.QWidget):
     doc = QtGui.QTextDocument()
