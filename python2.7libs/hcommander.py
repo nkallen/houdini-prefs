@@ -79,18 +79,17 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._textbox.textChanged.connect(self._text_changed)
 
         self._list = QtWidgets.QListView()
-        self._list.setStyleSheet("QListView::item { padding: 10px; }")
 
         self._proxy_model = AutoCompleteModel()
         self._proxy_model.setSourceModel(self._model)
         self._list.setModel(self._proxy_model)
 
-        self._item_delegate = ItemDelegate()
+        self._item_delegate = ItemDelegate(self)
         self._list.setItemDelegate(self._item_delegate)
 
         # self._list.clicked.connect(self.accept)
         self._list.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._list.setEditTriggers(QAbstractItemView.SelectedClicked | QAbstractItemView.DoubleClicked)
+        self._list.setEditTriggers(QAbstractItemView.SelectedClicked | QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
 
         layout.addWidget(self._list)
     
@@ -119,8 +118,8 @@ class HCommanderWindow(QtWidgets.QDialog):
         modifiers = event.modifiers()
 
         if key in (Qt.Key_Enter, Qt.Key_Return):
-            self.accept()
-            return True
+            # self.accept()
+            return False
 
         elif key == Qt.Key_Up:
             self._cursor(self._list.MoveUp, modifiers)
@@ -143,6 +142,8 @@ class HCommanderWindow(QtWidgets.QDialog):
             return
 
         index = self._list.selectedIndexes()[0]
+        self._list.edit(index)
+        return
         parm_tuple = index.data(ParmTupleRole)
 
         if isinstance(parm_tuple, Action):
@@ -155,6 +156,7 @@ class HCommanderWindow(QtWidgets.QDialog):
                 self.selection = (parm_tuple, (index.data(WhichMatchRole) or 1) - 1)
     
     def close(self):
+        print "in close"
         QtWidgets.QDialog.close(self)
         self.setParent(None)
         this.window = None
@@ -167,11 +169,10 @@ class HCommanderWindow(QtWidgets.QDialog):
 class ItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(ItemDelegate, self).__init__(parent)
-        self.doc = QtGui.QTextDocument(self)
-        self.doc.setDocumentMargin(0)
-        self._highlight_format = QtGui.QTextCharFormat()
-        self._highlight_format.setFontWeight(QtGui.QFont.Bold)
         self._filter = None
+
+    def sizeHint(self, option, index):
+        return QtCore.QSize(0, 50)
 
     def filter(self, text):
         self._filter = text
@@ -183,87 +184,33 @@ class ItemDelegate(QStyledItemDelegate):
         painter.setClipRect(option.rect)
 
         parm_tuple = index.data(ParmTupleRole)
-        label = parm_tuple.parmTemplate().label()
         
-        # Draw the background, icon, and checkbox, but not the label
+        # Draw the background but nothing else
         option.text = ""
         style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, option, painter, option.widget)
         text_rect = style.subElementRect(QtWidgets.QStyle.SE_ItemViewItemText, option, option.widget)
 
-        # move to position to draw the rest
-        if option.state & QStyle.State_Selected: text_rect.adjust(0, -1, 0, 0)
-        painter.translate(text_rect.topLeft())
+        painter.translate(option.rect.topLeft())
 
-        # paint the label, highlight matches
-        docsize = self._paintLabel(painter, index)
-
-        # paint the widget for the values
-        painter.translate(200, 0)
-        field = InputField(parm_tuple)
-        field.setGeometry(text_rect.adjusted(200, 0, 0, 0))
+        field = InputField(self.parent(), parm_tuple, self._filter, index.data(WhichMatchRole), index.data(AutoCompleteRole))
+        field.setGeometry(option.rect)
         field.render(painter, QtCore.QPoint(0, 0), QtGui.QRegion(0, 0, option.rect.width(), option.rect.height()), QWidget.RenderFlag.DrawChildren)
 
         painter.restore()
 
-    def _paintLabel(self, painter, index):
-        if self._filter:
-            self.doc.setPlainText("")
-            cursor = QtGui.QTextCursor(self.doc)
-            plain = cursor.charFormat()
-            cursor.mergeCharFormat(self._highlight_format)
-            highlight = cursor.charFormat()
-            filter = self._filter.upper()
-            first = True
-            match = index.data(WhichMatchRole)
-            for x, text in enumerate(index.data(AutoCompleteRole)):
-                if x == match:
-                    i = 0
-                    for char in text:
-                        if i < len(self._filter) and char.upper() == filter[i]:
-                            i += 1
-                            cursor.setCharFormat(highlight)
-                        else:
-                            cursor.setCharFormat(plain)
-                        cursor.insertText(char)
-                else:
-                    cursor.setCharFormat(plain)
-                    cursor.insertText(text)
-                if first: cursor.insertText(": ")
-                else: cursor.insertText(" ")
-                first = False
-        else:
-            labels = index.data(AutoCompleteRole)
-            first, rest = labels[0], labels[1:]
-            self.doc.setPlainText(first + ": " + " ".join(rest) + "")
-
-        ctx = QtGui.QAbstractTextDocumentLayout.PaintContext()
-        self.doc.documentLayout().draw(painter, ctx)
-        return self.doc.size()
-
     def createEditor(self, parent, option, index):
-        print "createEditor"
-        # if index.column() == 3:
-        #     editor = StarEditor(parent)
-        #     editor.editingFinished.connect(self.commitAndCloseEditor)
-        #     return editor
-        # else:
-        return QStyledItemDelegate.createEditor(self, parent, option, index)
+        field = InputField(parent, index.data(ParmTupleRole), self._filter, index.data(WhichMatchRole), index.data(AutoCompleteRole))
+        return field
 
     def setEditorData(self, editor, index):
         print "setEditorData"
-        # if index.column() == 3:
-        #     editor.starRating = StarRating(index.data())
-        # else:
-        QStyledItemDelegate.setEditorData(self, editor, index)
     
     def setModelData(self, editor, model, index):
         print "setModelData"
-        # if index.column() == 3:
-        #     model.setData(index, editor.starRating.starCount)
-        # else:
         QStyledItemDelegate.setModelData(self, editor, model, index)
 
     def commitAndCloseEditor(self):
+        print "commit and close"
         editor = self.sender()
 
         # The commitData signal must be emitted when we've finished editing
@@ -359,23 +306,6 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         self.endResetModel()
     
 class ParmTupleModel(QtCore.QAbstractListModel):
-    @staticmethod
-    def type2icon(type):
-        typename = type.name()
-        iconname = None
-        if typename == "Float":
-            iconname = "DATATYPES_float"
-        elif typename == "Int":
-            iconname = "DATATYPES_int"
-        elif typename == "Toggle":
-            # the checkbox takes the place of the icon
-            return None
-        elif typename == "String":
-            iconname = "DATATYPES_string"
-        else:
-            print typename
-        return hou.qt.Icon(iconname)
-
     def __init__(self, parent, parmTuples):
         super(ParmTupleModel, self).__init__(parent)
         self._parmTuples = sorted(parmTuples, key=lambda x: x.isAtDefault())
@@ -408,8 +338,6 @@ class ParmTupleModel(QtCore.QAbstractListModel):
                 else:
                     vs.append(str(v))
             return ", ".join(vs)
-        if role == Qt.DecorationRole:
-            return ParmTupleModel.type2icon(type)
         if role == Qt.ForegroundRole:
             if parm_tuple.isAtDefault():
                 return QtGui.QColor(Qt.darkGray)
@@ -417,9 +345,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
                 return QtGui.QColor(Qt.white)
         if role == AutoCompleteRole:
             return [parm_tuple.parmTemplate().label()] + map(lambda x: x.name(), parm_tuple)
-        if role == Qt.CheckStateRole:
-            if type == parmTemplateType.Toggle:
-                return Qt.Checked if parm_tuple.eval()[0] == 1 else Qt.Unchecked
+
         return None
 
 class ActionModel(QtCore.QAbstractListModel):
@@ -660,130 +586,58 @@ __fs_watcher.fileChanged.connect(Action.load)
 class InputField(QtWidgets.QWidget):
     valueChanged = QtCore.Signal()
 
-    def __init__(self, parm_tuple):
-        super(InputField, self).__init__()
+    @staticmethod
+    def type2icon(type):
+        typename = type.name()
+        iconname = None
+        if typename == "Float":
+            iconname = "DATATYPES_float"
+        elif typename == "Int":
+            iconname = "DATATYPES_int"
+        elif typename == "Toggle":
+            iconname = "DATATYPES_boolean"
+        elif typename == "String":
+            iconname = "DATATYPES_string"
+        else:
+            print typename
+        return hou.qt.Icon(iconname)
+        
+    def __init__(self, parent, parm_tuple, filter, which_match, autocompletes):
+        super(InputField, self).__init__(parent)
         self.parm_tuple = parm_tuple
 
-        self.setStyleSheet("border: 1px solid black; background: transparent")
+        self.setStyleSheet("background: transparent")
         layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
-        self.setLayout(layout)
+
+        icon = InputField.type2icon(parm_tuple.parmTemplate().type())
+        if icon:
+            icon_size = hou.ui.scaledSize(16)
+            pixmap = icon.pixmap(QtCore.QSize(icon_size, icon_size))
+            label = QtWidgets.QLabel(self)
+            label.setPixmap(pixmap)
+            layout.addWidget(label)
+
+        layout.addWidget(_Label(filter, which_match, autocompletes))
 
         self.line_edits = []
         for i, parm in enumerate(parm_tuple):
             self.line_edits.append(QtWidgets.QLineEdit(self))
 
+            self.line_edits[i].setStyleSheet("border: 1px solid black; background: transparent;")
             self.line_edits[i].setText(str(parm_tuple.eval()[i]))
-            self.line_edits[i].textChanged.connect(self._handleTextChanged)
-            self.line_edits[i].textEdited.connect(self._handleLineEditChanged)
-            self.line_edits[i].editingFinished.connect(self._handleEditingFinished)
+
+            # self.line_edits[i].textChanged.connect(self._handleTextChanged)
+            # self.line_edits[i].textEdited.connect(self._handleLineEditChanged)
+            # self.line_edits[i].editingFinished.connect(self._handleEditingFinished)
             layout.addWidget(self.line_edits[i])
-
-    def setValue(self, value, index=0):
-        assert index >= 0 and index <= self.numComponents
-        if sys.version_info.major >= 3:
-            is_string = type(value) in (str, )
-        else:
-            is_string = type(value) in (str, unicode)
-        assert (self.dataType == InputField.StringType
-                and is_string) \
-            or (self.dataType in (InputField.IntegerType, InputField.FloatType)
-                and type(value) in (int, float))
-
-        strvalue = str(value)
-        if type(value) is float:
-            strvalue = strvalue.rstrip('0').rstrip('.')
-        self.line_edits[index].setText(strvalue)
-
-    def setValues(self, values):
-        # First pass.  Check value types.
-        assert len(values) == self.numComponents
-        for i in range(self.numComponents):
-            assert (self.dataType == InputField.StringType
-                and type(values[i]) == str) \
-            or (self.dataType in (InputField.IntegerType, InputField.FloatType)
-                and type(values[i]) in (int, float))
-
-        # Second pass.  Set values.
-        for i in range(self.numComponents):
-            self.line_edits[i].setText(str(values[i]))
-
-            # Do this so that the beginning of the text is visible.
-            self.line_edits[i].setCursorPosition(0)
-
-    def value(self, index=0):
-        assert index >= 0 and index <= self.numComponents
-        text = self.line_edits[index].text()
-
-        if self.dataType == InputField.IntegerType:
-            try:
-                val = int(text)
-            except:
-                val = 0
-        elif self.dataType == InputField.FloatType:
-            try:
-                val = float(text)
-            except:
-                val = 0.0
-        else:
-            val = text
-
-        return val
-
-    def values(self):
-        return_values = []
-
-        for i in range(self.numComponents):
-            text = self.lineEdits[i].text()
-
-            if self.dataType == InputField.IntegerType:
-                try:
-                    val = int(text)
-                except:
-                    val = 0
-            elif self.dataType == InputField.FloatType:
-                try:
-                    val = float(text)
-                except:
-                    val = 0.0
-            else:
-                val = text
-
-            return_values.append(val)
-
-        return return_values
-
-    def setAlignment(self, a):
-        for i in range(self.numComponents):
-            self.lineEdits[i].setAlignment(a)
-
-    def setState(self, state_name, state_value, index=0):
-        assert index >= 0 and index <= self.numComponents
-        current = self.lineEdits[index].property(state_name)
-        if current != state_value:
-            self.lineEdits[index].setProperty(state_name, state_value)
-            self.style().unpolish(self.lineEdits[index])
-            self.style().polish(self.lineEdits[index])
-            self.update()
-
-    def state(self, state_name, index=0):
-        assert index >= 0 and index <= self.numComponents
-        return self.lineEdits[index].property(state_name)
-
-    def setMenu(self, menu):
-        for i in range(self.numComponents):
-            self.lineEdits[i].setMenu(menu)
-
-    def menu(self):
-        return list(self.lineEdits[i].menu() for i in range(self.numComponents))
+        self.setLayout(layout)
 
     def _handleLineEditChanged(self, text):
         self.hasPendingChanges = True
 
     def _handleEditingFinished(self):
-        # If there were pending changes, then notify observers that the value
-        # has changed.
         if self.hasPendingChanges:
             self.valueChanged.emit()
 
@@ -792,101 +646,52 @@ class InputField(QtWidgets.QWidget):
     def _handleTextChanged(self, text):
         self.valueChanged.emit()
 
+class _Label(QtWidgets.QWidget):
+    doc = QtGui.QTextDocument()
+    doc.setDocumentMargin(0)
 
-
-
-class _LineEdit(QtWidgets.QLineEdit):
-    """Private helper class representing a single line edit widget
-       in the input field."""
-    hotkeyInvoked = QtCore.Signal(str)
-
-    def __init__(self, data_type, mouse_hotkeys={}):
-        QtWidgets.QLineEdit.__init__(self)
-
-        self._menu = None
-        self.mouse_hotkeys = mouse_hotkeys
-        self.setObjectName("parm_edit")
-        self.dataType = data_type
-        self.setSizePolicy(
-            QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-
-        self.isValueLadderOpen = False
-        self.setStyleSheet("margin: 0; padding: 0")
+    def __init__(self, filter, which_match, autocompletes):
+        super(_Label, self).__init__()
+        self._filter = filter
+        self._which_match = which_match
+        self._autocompletes = autocompletes
+        self._highlight_format = QtGui.QTextCharFormat()
+        self._highlight_format.setFontWeight(QtGui.QFont.Bold)
 
     def sizeHint(self):
-        size_hint = QtWidgets.QLineEdit.sizeHint(self)
-        size_hint.setWidth(50)
-        return size_hint
+        return QtCore.QSize(200, 10)
 
-    def _handleXCFValueChange(self, ladder_value):
-        str_value = str(ladder_value)
-        self.setText(str_value)
-
-        # Notify observers that the text contents have changed.
-        self.textChanged.emit(str_value)
-
-    def mousePressEvent(self, event):
-        buttons = int(event.buttons())
-        modifiers = int(event.modifiers())
-        # First check for menu
-        if (buttons, modifiers) == (QtCore.Qt.RightButton, 0) and self._menu:
-            self._menu.popup(self.mapToGlobal(event.pos()))
-            return
-
-        # Next check for XCF slider
-        if event.button() == QtCore.Qt.MiddleButton and modifiers == 0:
-            hou.ui.openValueLadder(
-                self.xcfValue(), self._handleXCFValueChange,
-                hou.valueLadderType.Generic,
-                hou.valueLadderDataType.Float
-                    if self.dataType == InputField.FloatType
-                    else hou.valueLadderDataType.Int)
-            self.isValueLadderOpen = True
-            return
-
-        # Next check for hotkeys
-        hotkey_symbol = self.mouse_hotkeys.get((buttons, modifiers))
-        if hotkey_symbol:
-            self.hotkeyInvoked.emit(hotkey_symbol)
-            return
-
-        # Nothing so just go to the base class
-        super(_LineEdit, self).mousePressEvent(event)
-
-    def setMenu(self, menu):
-        self._menu = menu
-
-    def menu(self):
-        return self._menu
-
-    def mouseMoveEvent(self, event):
-        if self.isValueLadderOpen:
-            hou.ui.updateValueLadder(
-                event.globalX(), event.globalY(),
-                bool(event.modifiers() & QtCore.Qt.AltModifier),
-                bool(event.modifiers() & QtCore.Qt.ShiftModifier))
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == QtCore.Qt.MiddleButton and self.isValueLadderOpen:
-            hou.ui.closeValueLadder()
-            self.isValueLadderOpen = False
-
-    def xcfValue(self):
-        """Return the numeric value of the line edit's text that should be used
-           in the XCF ladder window."""
-        if self.dataType == InputField.IntegerType:
-            try:
-                val = int(self.text())
-            except:
-                val = 0
-        elif self.dataType == InputField.FloatType:
-            try:
-                val = float(self.text())
-            except:
-                val = 0.0
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        if self._filter:
+            self.doc.setPlainText("")
+            cursor = QtGui.QTextCursor(self.doc)
+            plain = cursor.charFormat()
+            cursor.mergeCharFormat(self._highlight_format)
+            highlight = cursor.charFormat()
+            filter = self._filter.upper()
+            first = True
+            for x, text in enumerate(self._autocompletes):
+                if x == self._which_match:
+                    i = 0
+                    for char in text:
+                        if i < len(self._filter) and char.upper() == filter[i]:
+                            i += 1
+                            cursor.setCharFormat(highlight)
+                        else:
+                            cursor.setCharFormat(plain)
+                        cursor.insertText(char)
+                else:
+                    cursor.setCharFormat(plain)
+                    cursor.insertText(text)
+                if first: cursor.insertText(": ")
+                else: cursor.insertText(" ")
+                first = False
         else:
-            # InputField.StringType.
-            # TODO: Parse out numeric value under cursor if any.
-            val = 0
+            labels = self._autocompletes
+            first, rest = labels[0], labels[1:]
+            _Label.doc.setPlainText(first + ": " + " ".join(rest) + "")
 
-        return val
+        ctx = QtGui.QAbstractTextDocumentLayout.PaintContext()
+        _Label.doc.documentLayout().draw(painter, ctx)
+        return _Label.doc.size()
