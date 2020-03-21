@@ -16,6 +16,9 @@ quickly run commands or edit nodes using only the keyboard.
 """
 
 this = sys.modules[__name__]
+ParmTupleRole = Qt.UserRole 
+AutoCompleteRole = Qt.UserRole + 1
+WhichMatchRole = Qt.UserRole + 2
 
 this.window = None
 def handleEvent(uievent, pending_actions):
@@ -117,11 +120,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         key = event.key()
         modifiers = event.modifiers()
 
-        if key in (Qt.Key_Enter, Qt.Key_Return):
-            # self.accept()
-            return False
-
-        elif key == Qt.Key_Up:
+        if key == Qt.Key_Up:
             self._cursor(self._list.MoveUp, modifiers)
             return True
         elif key == Qt.Key_Down:
@@ -148,7 +147,6 @@ class HCommanderWindow(QtWidgets.QDialog):
             type = parm_tuple.parmTemplate().type()
             if type == parmTemplateType.Toggle:
                 parm_tuple.set([int(not parm_tuple.eval()[0])])
-                # FIXME redraw if not volatile
             else:
                 self._list.edit(index)
     
@@ -244,11 +242,7 @@ class ItemDelegate(QStyledItemDelegate):
                 parm.set(value)
         else:
             parm.revertToDefaults()
-
         
-ParmTupleRole = Qt.UserRole 
-AutoCompleteRole = Qt.UserRole + 1
-WhichMatchRole = Qt.UserRole + 2
 
 """
 This is a custom autocompleter that can match either the "label" or the "name(s)" in an item. Its key
