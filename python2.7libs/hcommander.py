@@ -1,4 +1,4 @@
-import hou, nodegraph, os, csv, sys, traceback
+import hou, nodegraph, os, csv, sys, traceback, math
 from hou import parmTemplateType
 from collections import defaultdict
 import nodegraphbase as base
@@ -39,6 +39,8 @@ def handleEvent(uievent, pending_actions):
         return None, False
 
 class HCommanderWindow(QtWidgets.QDialog):
+    width = 700
+
     @staticmethod
     def _filter(parmTuples):
         valid_types = { parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle }
@@ -51,15 +53,16 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._volatile = volatile
 
         self.editor = editor
-        self.setMinimumWidth(700)
+        self.setMinimumWidth(HCommanderWindow.width)
         self.setMinimumHeight(300)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
 
-        selected_node = hou.selectedNodes()[0]
-        self._model = CompositeModel(self, [
-            ParmTupleModel(self, HCommanderWindow._filter(selected_node.parmTuples())),
-            ActionModel(self, Action.find(selected_node))])
+        models = []
+        if len(hou.selectedNodes()) == 1:
+            models.append(ParmTupleModel(self, HCommanderWindow._filter(hou.selectedNodes()[0].parmTuples())))
+            models.append(ActionModel(self, Action.find(hou.selectedNodes()[0])))
+        self._model = CompositeModel(self, models)
 
         self._setup_ui()
         self.selection = (None, None)
@@ -72,17 +75,18 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._textbox = QtWidgets.QLineEdit(self)
         self._textbox.installEventFilter(self)
         self._textbox.returnPressed.connect(self.accept)
-        self._textbox.setStyleSheet("font-size: 18px; height: 24px; border: none; background: transparent")
+        self._textbox.setStyleSheet("font-size: 18px; height: 24px; border: none; background-color: transparent")
         self._textbox.textChanged.connect(self._text_changed)
 
-        self._list = ListView()
+        self._list = ListView(self)
         self._proxy_model = AutoCompleteModel()
         self._proxy_model.setSourceModel(self._model)
         self._list.setModel(self._proxy_model)
-        self._list.setItemDelegate(ItemDelegate(parent=self)) # passing a parent=self is necessary to inherit styles
-        self._list.clicked.connect(self.accept)
+        item_delegate = ItemDelegate(parent=self._list) # passing a parent= is necessary for child InputFields to inherit style
+        self._list.setItemDelegate(item_delegate) 
+        # self._list.clicked.connect(self.accept)
         self._list.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._list.setEditTriggers(QAbstractItemView.SelectedClicked | QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+        # self._list.setEditTriggers(QAbstractItemView.SelectedClicked | QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
 
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
@@ -159,7 +163,8 @@ class ItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(ItemDelegate, self).__init__(parent)
         self._filter = None
-        self._mouse_over = False
+        self._last_event = None
+        self.closeEditor.connect(self._closeEditor)
 
     def sizeHint(self, option, index):
         return QtCore.QSize(0, 50)
@@ -189,17 +194,18 @@ class ItemDelegate(QStyledItemDelegate):
         painter.restore()
 
     def createEditor(self, parent, option, index):
-        print 1212
         which_match = index.data(WhichMatchRole)
         editor = InputField(parent, index.data(ParmTupleRole), self._filter, which_match, index.data(AutoCompleteRole))
 
+        # focus the best autocomplete match
         which_match = index.data(WhichMatchRole)
-        line_edit = editor.line_edits[(which_match or 1) - 1]
+        focus_proxy = editor.line_edits[(which_match or 1) - 1]
+        editor.setFocusProxy(focus_proxy)
 
-        if self._mouse_over:
-            editor.item_delegate = self
-        else:
-            editor.setFocusProxy(line_edit)
+        # but if the user clicked on a field, focus that instead
+        if self._last_event:
+            clicked = editor.line_edit_at(self._last_event.pos())
+            if clicked: editor.setFocusProxy(clicked)
 
         editor.editingFinished.connect(self.editingFinished)
         editor.valueChanged.connect(self.valueChanged)
@@ -208,22 +214,25 @@ class ItemDelegate(QStyledItemDelegate):
 
     def setEditorData(self, editor, index):
         # Disable undos while the user makes interactive edits
-        editor.undo_context = hou.undos.disabler()
-        editor.undo_context.__enter__()
+        self.undo_context = hou.undos.disabler()
+        self.undo_context.__enter__()
         parm_tuple = index.data(ParmTupleRole)
-        editor.original_value = parm_tuple.eval()
-        self.closeEditor.connect(self._closeEditor)
+        self.original_value = parm_tuple.eval()
 
     def setModelData(self, editor, model, index):
-        editor.undo_context.__exit__(None, None, None)
-        with hou.undos.group("Parameter Change"):
-            for i, parm in enumerate(editor.parm_tuple):
-                self.valueChanged(parm, editor.line_edits[i].text())
+        self.undo_context.__exit__(None, None, None)
+        self.undo_context = None
+        if editor.parm_tuple.eval() != self.original_value:
+            with hou.undos.group("Parameter Change"):
+                for i, parm in enumerate(editor.parm_tuple):
+                    self.valueChanged(parm, editor.line_edits[i].text())
+            self.original_value = None
     
     def _closeEditor(self, editor, edit_hint):
         if edit_hint == QAbstractItemDelegate.EndEditHint.RevertModelCache:
-            editor.parm_tuple.set(editor.original_value)
-            editor.undo_context.__exit__(None, None, None)
+            editor.parm_tuple.set(self.original_value)
+            self.undo_context.__exit__(None, None, None)
+            self.undo_context = None
 
     def editingFinished(self):
         editor = self.sender()
@@ -231,7 +240,7 @@ class ItemDelegate(QStyledItemDelegate):
         self.closeEditor.emit(editor)
     
     def valueChanged(self, parm, value):
-        type = self.sender().parm_tuple.parmTemplate().type()
+        type = parm.parmTemplate().type()
         if value != "":
             if type == parmTemplateType.Int:
                 try: parm.set(int(value))
@@ -244,13 +253,11 @@ class ItemDelegate(QStyledItemDelegate):
         else:
             parm.revertToDefaults()
     
-    def enter_item(self, list, index):
-        self._mouse_over = True
+    def mousePressEvent(self, list, event):
+        index = list.indexAt(event.pos())
+        self._last_event = event
         list.edit(index)
-
-    def leave_editor(self, editor, event):
-        self.closeEditor.emit(editor)
-        self._mouse_over = False
+        self._last_event = None
 
 """
 This is a custom autocompleter that can match either the "label" or the "name(s)" in an item. Its key
@@ -480,17 +487,17 @@ __fs_watcher.addPath(Action.configfile)
 __fs_watcher.fileChanged.connect(Action.load)
 
 class ListView(QtWidgets.QListView):
-    def __init__(self, parent=None):
-        super(ListView, self).__init__(parent)
-        self.setMouseTracking(True)
-
-    def mouseMoveEvent(self, event):
+    def mousePressEvent(self, event):
+        print "press"
+        QtWidgets.QListView.mousePressEvent(self, event)
         item_delegate = self.itemDelegate()
-        item_delegate.enter_item(self, self.indexAt(event.pos()))
+        item_delegate.mousePressEvent(self, event)
 
 class InputField(QtWidgets.QWidget):
+    margin = 10
     valueChanged = QtCore.Signal(hou.Parm, str)
     editingFinished = QtCore.Signal()
+    mouseLeave = QtCore.Signal()
 
     @staticmethod
     def type2icon(type):
@@ -509,7 +516,7 @@ class InputField(QtWidgets.QWidget):
         self.item_delegate = None
 
         layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(InputField.margin, InputField.margin, InputField.margin, InputField.margin)
 
         icon = InputField.type2icon(parm_tuple.parmTemplate().type())
         if icon:
@@ -524,8 +531,7 @@ class InputField(QtWidgets.QWidget):
         self.line_edits = []
         for i, parm in enumerate(parm_tuple):
             line_edit = QtWidgets.QLineEdit(self)
-
-            line_edit.setStyleSheet("QLineEdit { border: 1px solid black; background: transparent } QLineEdit::hover { border: 1px solid yellow }")
+            line_edit.setStyleSheet("QLineEdit { border: 1px solid black; background-color:" + hou.qt.getColor("PaneEmptyBG").name() + " }")
             line_edit.setText(str(parm_tuple.eval()[i]))
             line_edit.setProperty("parm", parm)
             line_edit.installEventFilter(self)
@@ -534,18 +540,26 @@ class InputField(QtWidgets.QWidget):
             layout.addWidget(line_edit)
         self.setLayout(layout)
 
+    def line_edit_at(self, pos):
+        x = pos.x() - _Label.width - InputField.margin*2
+        if x < 0: return None
+        width = HCommanderWindow.width - _Label.width - InputField.margin*2
+        i = int(math.floor( x * len(self.line_edits) / width))
+        print i
+        return self.line_edits[i]
+
     _axis = {Qt.Key_X: [1,0,0,0], Qt.Key_Y: [0,1,0,0], Qt.Key_Z: [0,0,1,0], Qt.Key_W: [0,0,0,1]}
     def eventFilter(self, obj, event):
         if event.type() == QtCore.QEvent.Type.Wheel:
-            self.delta(event.angleDelta().y(), event.modifiers())
+            self.delta(event.angleDelta().y(), event.modifiers(), obj)
             event.accept()
             return True
         elif event.type() == QtCore.QEvent.KeyPress:
             if event.key() == Qt.Key_Up:
-                self.delta(1, event.modifiers())
+                self.delta(1, event.modifiers(), obj)
                 return True
             elif event.key() == Qt.Key_Down:
-                self.delta(-1, event.modifiers())
+                self.delta(-1, event.modifiers(), obj)
                 return True
             # elif event.key() == Qt.Key_Space and self._volatile:
             #     return True
@@ -555,7 +569,7 @@ class InputField(QtWidgets.QWidget):
                     self.parm_tuple.set(InputField._axis[event.key()][0:l])
                     for i, parm in enumerate(self.parm_tuple):
                         textbox = self.line_edits[i]
-                        textbox.setText(str(self.parm_tuple.eval()[i]))
+                        textbox.setText(str(parm.eval()))
                         if InputField._axis[event.key()][i] == 1:
                             textbox.selectAll()
                             textbox.setFocus()
@@ -563,7 +577,7 @@ class InputField(QtWidgets.QWidget):
                     return True
         return False
 
-    def delta(self, delta, modifiers):
+    def delta(self, delta, modifiers, obj):
         scale = 0.01
         f = float
         type = self.parm_tuple.parmTemplate().type()
@@ -575,11 +589,12 @@ class InputField(QtWidgets.QWidget):
             if modifiers & Qt.MetaModifier: scale = 0.1
             if modifiers & Qt.AltModifier: scale = 1
             if modifiers & Qt.MetaModifier and modifiers & Qt.AltModifier: scale = 10
-        textbox = self.focusWidget()
+        textbox = obj
         parm = textbox.property("parm")
         result = f(textbox.text()) + delta * scale
-        textbox.setText(str(result))
-        parm.set(result)
+        value = str(result)
+        textbox.setText(value)
+        self.valueChanged.emit(parm, value)
     
     def _update(self, value):
         parm = self.sender().property("parm")
@@ -591,12 +606,12 @@ class InputField(QtWidgets.QWidget):
         return QtWidgets.QWidget.event(self, event)
 
     def leaveEvent(self, event):
-        if self.item_delegate:
-            self.item_delegate.leave_editor(self, event)
+        self.mouseLeave.emit()
 
 class _Label(QtWidgets.QWidget):
     doc = QtGui.QTextDocument()
     doc.setDocumentMargin(0)
+    width = 220
 
     def __init__(self, filter, which_match, autocompletes):
         super(_Label, self).__init__()
@@ -607,7 +622,7 @@ class _Label(QtWidgets.QWidget):
         self._highlight_format.setFontWeight(QtGui.QFont.Bold)
 
     def sizeHint(self):
-        return QtCore.QSize(220, 1)
+        return QtCore.QSize(_Label.width, 1)
 
     def paintEvent(self, event):
         painter = QtGui.QPainter(self)
