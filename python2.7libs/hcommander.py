@@ -47,15 +47,13 @@ class HCommanderWindow(QtWidgets.QDialog):
         return list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
     
     def __init__(self, editor, volatile):
-        super(HCommanderWindow, self).__init__(
-            hou.qt.floatingPanelWindow(editor.pane().floatingPanel())
-        )
+        super(HCommanderWindow, self).__init__()
         self._volatile = volatile
 
         self.editor = editor
         self.setMinimumWidth(HCommanderWindow.width)
         self.setMinimumHeight(300)
-        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
+        self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
 
         models = []
@@ -72,6 +70,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         # FIXME
 
     def _setup_ui(self):
+        self.setStyleSheet(hou.qt.styleSheet())
         self._textbox = QtWidgets.QLineEdit(self)
         self._textbox.installEventFilter(self)
         self._textbox.returnPressed.connect(self.accept)
@@ -153,11 +152,6 @@ class HCommanderWindow(QtWidgets.QDialog):
         QtWidgets.QDialog.close(self)
         self.setParent(None)
         this.window = None
-
-    def changeEvent(self, event): # Close when losing focus
-        if event.type() == QtCore.QEvent.ActivationChange:
-            if not self.isActiveWindow():
-                self.close()
 
 class ItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
@@ -259,13 +253,189 @@ class ItemDelegate(QStyledItemDelegate):
         list.edit(index)
         self._last_event = None
 
-"""
-This is a custom autocompleter that can match either the "label" or the "name(s)" in an item. Its key
-feature is when a user types "upr" it can match "upper", "super", etc. which differs from the
-default QT prefix/suffix matching. Items have labels like "translation" and names like "tx", "ty",
-etc.
-"""
+class ListView(QtWidgets.QListView):
+    def mousePressEvent(self, event):
+        QtWidgets.QListView.mousePressEvent(self, event)
+        item_delegate = self.itemDelegate()
+        item_delegate.mousePressEvent(self, event)
+
+class InputField(QtWidgets.QWidget):
+    margin = 10
+    valueChanged = QtCore.Signal(hou.Parm, str)
+    editingFinished = QtCore.Signal()
+    mouseLeave = QtCore.Signal()
+
+    @staticmethod
+    def type2icon(type):
+        typename = type.name()
+        iconname = None
+        if typename == "Float":    iconname = "DATATYPES_float"
+        elif typename == "Int":    iconname = "DATATYPES_int"
+        elif typename == "Toggle": iconname = "DATATYPES_boolean"
+        elif typename == "String": iconname = "DATATYPES_string"
+        return hou.qt.Icon(iconname)
+        
+    def __init__(self, parent, parm_tuple, filter, which_match, autocompletes):
+        super(InputField, self).__init__(parent)
+        self.parm_tuple = parm_tuple
+        self._which_match = which_match
+        self.item_delegate = None
+
+        layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(InputField.margin, InputField.margin, InputField.margin, InputField.margin)
+
+        icon = InputField.type2icon(parm_tuple.parmTemplate().type())
+        if icon:
+            icon_size = hou.ui.scaledSize(16)
+            pixmap = icon.pixmap(QtCore.QSize(icon_size, icon_size))
+            label = QtWidgets.QLabel(self)
+            label.setPixmap(pixmap)
+            layout.addWidget(label)
+
+        layout.addWidget(_Label(filter, which_match, autocompletes))
+
+        self.line_edits = []
+        for i, parm in enumerate(parm_tuple):
+            line_edit = QtWidgets.QLineEdit(self)
+            line_edit.setStyleSheet("QLineEdit { border: 1px solid black; background-color:" + hou.qt.getColor("PaneEmptyBG").name() + " }")
+            line_edit.setText(str(parm_tuple.eval()[i]))
+            line_edit.setProperty("parm", parm)
+            line_edit.installEventFilter(self)
+            line_edit.textEdited.connect(self._update)
+            self.line_edits.append(line_edit)
+            layout.addWidget(line_edit)
+        self.setLayout(layout)
+
+    def line_edit_at(self, pos):
+        x = pos.x() - _Label.width - InputField.margin*2
+        if x < 0: return None
+        width = HCommanderWindow.width - _Label.width - InputField.margin*2
+        i = int(math.floor( x * len(self.line_edits) / width))
+        print i
+        return self.line_edits[i]
+
+    _axis = {Qt.Key_X: [1,0,0,0], Qt.Key_Y: [0,1,0,0], Qt.Key_Z: [0,0,1,0], Qt.Key_W: [0,0,0,1]}
+    def eventFilter(self, obj, event):
+        if event.type() == QtCore.QEvent.Type.Wheel:
+            self.delta(event.angleDelta().y(), event.modifiers(), obj)
+            event.accept()
+            return True
+        elif event.type() == QtCore.QEvent.KeyPress:
+            if event.key() == Qt.Key_Up:
+                self.delta(1, event.modifiers(), obj)
+                return True
+            elif event.key() == Qt.Key_Down:
+                self.delta(-1, event.modifiers(), obj)
+                return True
+            # elif event.key() == Qt.Key_Space and self._volatile:
+            #     return True
+            elif self.parm_tuple.parmTemplate().namingScheme() == hou.parmNamingScheme.XYZW:
+                if event.key() in InputField._axis:
+                    l = len(self.parm_tuple)
+                    self.parm_tuple.set(InputField._axis[event.key()][0:l])
+                    for i, parm in enumerate(self.parm_tuple):
+                        textbox = self.line_edits[i]
+                        textbox.setText(str(parm.eval()))
+                        if InputField._axis[event.key()][i] == 1:
+                            textbox.selectAll()
+                            textbox.setFocus()
+                        
+                    return True
+        return False
+
+    def delta(self, delta, modifiers, obj):
+        scale = 0.01
+        f = float
+        type = self.parm_tuple.parmTemplate().type()
+        if type == parmTemplateType.Int:
+            f = int
+            scale = 1
+        else:
+            if modifiers & Qt.ShiftModifier: scale = 0.001
+            if modifiers & Qt.MetaModifier: scale = 0.1
+            if modifiers & Qt.AltModifier: scale = 1
+            if modifiers & Qt.MetaModifier and modifiers & Qt.AltModifier: scale = 10
+        textbox = obj
+        parm = textbox.property("parm")
+        result = f(textbox.text()) + delta * scale
+        value = str(result)
+        textbox.setText(value)
+        self.valueChanged.emit(parm, value)
+    
+    def _update(self, value):
+        parm = self.sender().property("parm")
+        self.valueChanged.emit(parm, value)
+
+    def event(self, event):
+        if event.type() == QtCore.QEvent.Type.WindowDeactivate:
+            self.editingFinished.emit()
+        return QtWidgets.QWidget.event(self, event)
+
+    def leaveEvent(self, event):
+        self.mouseLeave.emit()
+
+class _Label(QtWidgets.QWidget):
+    doc = QtGui.QTextDocument()
+    doc.setDocumentMargin(0)
+    width = 220
+
+    def __init__(self, filter, which_match, autocompletes):
+        super(_Label, self).__init__()
+        self._filter = filter
+        self._which_match = which_match
+        self._autocompletes = autocompletes
+        self._highlight_format = QtGui.QTextCharFormat()
+        self._highlight_format.setFontWeight(QtGui.QFont.Bold)
+
+    def sizeHint(self):
+        return QtCore.QSize(_Label.width, 1)
+
+    def paintEvent(self, event):
+        painter = QtGui.QPainter(self)
+        if self._filter:
+            self.doc.setPlainText("")
+            cursor = QtGui.QTextCursor(self.doc)
+            plain = cursor.charFormat()
+            cursor.mergeCharFormat(self._highlight_format)
+            highlight = cursor.charFormat()
+            filter = self._filter.upper()
+            first = True
+            for x, text in enumerate(self._autocompletes):
+                if x == self._which_match:
+                    i = 0
+                    for char in text:
+                        if i < len(self._filter) and char.upper() == filter[i]:
+                            i += 1
+                            cursor.setCharFormat(highlight)
+                        else:
+                            cursor.setCharFormat(plain)
+                        cursor.insertText(char)
+                else:
+                    cursor.setCharFormat(plain)
+                    cursor.insertText(text)
+                if first: cursor.insertText(": ")
+                else: cursor.insertText(" ")
+                first = False
+        else:
+            labels = self._autocompletes
+            first, rest = labels[0], labels[1:]
+            _Label.doc.setPlainText(first + ": " + " ".join(rest) + "")
+
+        padding = (self.geometry().height() - _Label.doc.size().height())/2
+        painter.translate(0, padding)
+
+        ctx = QtGui.QAbstractTextDocumentLayout.PaintContext()
+        _Label.doc.documentLayout().draw(painter, ctx)
+
+
 class AutoCompleteModel(QtCore.QSortFilterProxyModel):
+    """
+    This is a custom autocompleter that can match either the "label" or the "name(s)" in an item. Its key
+    feature is when a user types "upr" it can match "upper", "super", etc. which differs from the
+    default QT prefix/suffix matching. Items have labels like "translation" and names like "tx", "ty",
+    etc.
+    """
+
     def __init__(self, parent=None):
         super(AutoCompleteModel, self).__init__(parent)
         self._filter = None
@@ -486,177 +656,3 @@ __fs_watcher = QtCore.QFileSystemWatcher()
 __fs_watcher.addPath(Action.configfile)
 __fs_watcher.fileChanged.connect(Action.load)
 
-class ListView(QtWidgets.QListView):
-    def mousePressEvent(self, event):
-        print "press"
-        QtWidgets.QListView.mousePressEvent(self, event)
-        item_delegate = self.itemDelegate()
-        item_delegate.mousePressEvent(self, event)
-
-class InputField(QtWidgets.QWidget):
-    margin = 10
-    valueChanged = QtCore.Signal(hou.Parm, str)
-    editingFinished = QtCore.Signal()
-    mouseLeave = QtCore.Signal()
-
-    @staticmethod
-    def type2icon(type):
-        typename = type.name()
-        iconname = None
-        if typename == "Float":    iconname = "DATATYPES_float"
-        elif typename == "Int":    iconname = "DATATYPES_int"
-        elif typename == "Toggle": iconname = "DATATYPES_boolean"
-        elif typename == "String": iconname = "DATATYPES_string"
-        return hou.qt.Icon(iconname)
-        
-    def __init__(self, parent, parm_tuple, filter, which_match, autocompletes):
-        super(InputField, self).__init__(parent)
-        self.parm_tuple = parm_tuple
-        self._which_match = which_match
-        self.item_delegate = None
-
-        layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(InputField.margin, InputField.margin, InputField.margin, InputField.margin)
-
-        icon = InputField.type2icon(parm_tuple.parmTemplate().type())
-        if icon:
-            icon_size = hou.ui.scaledSize(16)
-            pixmap = icon.pixmap(QtCore.QSize(icon_size, icon_size))
-            label = QtWidgets.QLabel(self)
-            label.setPixmap(pixmap)
-            layout.addWidget(label)
-
-        layout.addWidget(_Label(filter, which_match, autocompletes))
-
-        self.line_edits = []
-        for i, parm in enumerate(parm_tuple):
-            line_edit = QtWidgets.QLineEdit(self)
-            line_edit.setStyleSheet("QLineEdit { border: 1px solid black; background-color:" + hou.qt.getColor("PaneEmptyBG").name() + " }")
-            line_edit.setText(str(parm_tuple.eval()[i]))
-            line_edit.setProperty("parm", parm)
-            line_edit.installEventFilter(self)
-            line_edit.textEdited.connect(self._update)
-            self.line_edits.append(line_edit)
-            layout.addWidget(line_edit)
-        self.setLayout(layout)
-
-    def line_edit_at(self, pos):
-        x = pos.x() - _Label.width - InputField.margin*2
-        if x < 0: return None
-        width = HCommanderWindow.width - _Label.width - InputField.margin*2
-        i = int(math.floor( x * len(self.line_edits) / width))
-        print i
-        return self.line_edits[i]
-
-    _axis = {Qt.Key_X: [1,0,0,0], Qt.Key_Y: [0,1,0,0], Qt.Key_Z: [0,0,1,0], Qt.Key_W: [0,0,0,1]}
-    def eventFilter(self, obj, event):
-        if event.type() == QtCore.QEvent.Type.Wheel:
-            self.delta(event.angleDelta().y(), event.modifiers(), obj)
-            event.accept()
-            return True
-        elif event.type() == QtCore.QEvent.KeyPress:
-            if event.key() == Qt.Key_Up:
-                self.delta(1, event.modifiers(), obj)
-                return True
-            elif event.key() == Qt.Key_Down:
-                self.delta(-1, event.modifiers(), obj)
-                return True
-            # elif event.key() == Qt.Key_Space and self._volatile:
-            #     return True
-            elif self.parm_tuple.parmTemplate().namingScheme() == hou.parmNamingScheme.XYZW:
-                if event.key() in InputField._axis:
-                    l = len(self.parm_tuple)
-                    self.parm_tuple.set(InputField._axis[event.key()][0:l])
-                    for i, parm in enumerate(self.parm_tuple):
-                        textbox = self.line_edits[i]
-                        textbox.setText(str(parm.eval()))
-                        if InputField._axis[event.key()][i] == 1:
-                            textbox.selectAll()
-                            textbox.setFocus()
-                        
-                    return True
-        return False
-
-    def delta(self, delta, modifiers, obj):
-        scale = 0.01
-        f = float
-        type = self.parm_tuple.parmTemplate().type()
-        if type == parmTemplateType.Int:
-            f = int
-            scale = 1
-        else:
-            if modifiers & Qt.ShiftModifier: scale = 0.001
-            if modifiers & Qt.MetaModifier: scale = 0.1
-            if modifiers & Qt.AltModifier: scale = 1
-            if modifiers & Qt.MetaModifier and modifiers & Qt.AltModifier: scale = 10
-        textbox = obj
-        parm = textbox.property("parm")
-        result = f(textbox.text()) + delta * scale
-        value = str(result)
-        textbox.setText(value)
-        self.valueChanged.emit(parm, value)
-    
-    def _update(self, value):
-        parm = self.sender().property("parm")
-        self.valueChanged.emit(parm, value)
-
-    def event(self, event):
-        if event.type() == QtCore.QEvent.Type.WindowDeactivate:
-            self.editingFinished.emit()
-        return QtWidgets.QWidget.event(self, event)
-
-    def leaveEvent(self, event):
-        self.mouseLeave.emit()
-
-class _Label(QtWidgets.QWidget):
-    doc = QtGui.QTextDocument()
-    doc.setDocumentMargin(0)
-    width = 220
-
-    def __init__(self, filter, which_match, autocompletes):
-        super(_Label, self).__init__()
-        self._filter = filter
-        self._which_match = which_match
-        self._autocompletes = autocompletes
-        self._highlight_format = QtGui.QTextCharFormat()
-        self._highlight_format.setFontWeight(QtGui.QFont.Bold)
-
-    def sizeHint(self):
-        return QtCore.QSize(_Label.width, 1)
-
-    def paintEvent(self, event):
-        painter = QtGui.QPainter(self)
-        if self._filter:
-            self.doc.setPlainText("")
-            cursor = QtGui.QTextCursor(self.doc)
-            plain = cursor.charFormat()
-            cursor.mergeCharFormat(self._highlight_format)
-            highlight = cursor.charFormat()
-            filter = self._filter.upper()
-            first = True
-            for x, text in enumerate(self._autocompletes):
-                if x == self._which_match:
-                    i = 0
-                    for char in text:
-                        if i < len(self._filter) and char.upper() == filter[i]:
-                            i += 1
-                            cursor.setCharFormat(highlight)
-                        else:
-                            cursor.setCharFormat(plain)
-                        cursor.insertText(char)
-                else:
-                    cursor.setCharFormat(plain)
-                    cursor.insertText(text)
-                if first: cursor.insertText(": ")
-                else: cursor.insertText(" ")
-                first = False
-        else:
-            labels = self._autocompletes
-            first, rest = labels[0], labels[1:]
-            _Label.doc.setPlainText(first + ": " + " ".join(rest) + "")
-
-        padding = (self.geometry().height() - _Label.doc.size().height())/2
-        painter.translate(0, padding)
-
-        ctx = QtGui.QAbstractTextDocumentLayout.PaintContext()
-        _Label.doc.documentLayout().draw(painter, ctx)
