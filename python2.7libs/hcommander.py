@@ -55,7 +55,7 @@ class HCommanderWindow(QtWidgets.QDialog):
 
         self.editor = editor
         self.setMinimumWidth(HCommanderWindow.width)
-        self.setMinimumHeight(300)
+        self.setMinimumHeight(350)
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
 
@@ -104,7 +104,6 @@ class HCommanderWindow(QtWidgets.QDialog):
             if event.type() == QtCore.QEvent.KeyPress and event.key() == Qt.Key_Space and event.isAutoRepeat():
                 return True
             elif event.type() == QtCore.QEvent.KeyRelease and event.key() == Qt.Key_Escape:
-                print 1
                 self.accept()
                 return True
 
@@ -177,14 +176,16 @@ class ItemDelegate(QStyledItemDelegate):
         painter.setClipRect(option.rect)
 
         parm_tuple = index.data(ParmTupleRole)
-        
-        # Draw the background but nothing else
-        option.text = ""
-        style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, option, painter, option.widget)
-        text_rect = style.subElementRect(QtWidgets.QStyle.SE_ItemViewItemText, option, option.widget)
+
+        if option.state & QStyle.State_Selected:
+            # Draw the background but nothing else
+            option.text = ""
+            style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, option, painter, option.widget)
+            text_rect = style.subElementRect(QtWidgets.QStyle.SE_ItemViewItemText, option, option.widget)
+        elif not parm_tuple.isAtDefault():
+            painter.fillRect(option.rect, hou.qt.getColor("ListBG"))
 
         painter.translate(option.rect.topLeft())
-
         field = InputField(self.parent(), parm_tuple, self._filter, index.data(WhichMatchRole), index.data(AutoCompleteRole))
         field.setGeometry(option.rect)
         field.render(painter, QtCore.QPoint(0, 0), QtGui.QRegion(0, 0, option.rect.width(), option.rect.height()), QWidget.RenderFlag.DrawChildren)
@@ -527,22 +528,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
         type = parm_tuple.parmTemplate().type()
 
         if role == ParmTupleRole:
-            return parm_tuple
-        if role == Qt.DisplayRole:
-            if type == parmTemplateType.Toggle: return None
-
-            vs = []
-            for v in parm_tuple.eval():
-                if type == hou.parmTemplateType.Float:
-                    vs.append("{:.1f}".format(v))
-                else:
-                    vs.append(str(v))
-            return ", ".join(vs)
-        if role == Qt.ForegroundRole:
-            if parm_tuple.isAtDefault():
-                return QtGui.QColor(Qt.darkGray)
-            else:
-                return QtGui.QColor(Qt.white)
+            return parm_tuple 
         if role == AutoCompleteRole:
             return [parm_tuple.parmTemplate().label()] + map(lambda x: x.name(), parm_tuple)
 
