@@ -32,7 +32,7 @@ def handleEvent(uievent, pending_actions):
         return this, result
     else:
         if uievent.eventtype == 'keydown' and uievent.key == 'Space':
-            window = HCommanderWindow(uievent.editor, True)
+            window = HCommanderWindow(uievent.editor, False)
             window.show()
             window.activateWindow()
             this.window = window
@@ -87,6 +87,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._list.setModel(self._proxy_model)
         item_delegate = ItemDelegate(parent=self._list) # passing a parent= is necessary for child InputFields to inherit style
         item_delegate.closeEditor.connect(self._textbox.setFocus)
+        self.finished.connect(item_delegate.windowClosed.emit)
         self._list.setItemDelegate(item_delegate) 
         self._list.setSelectionMode(QAbstractItemView.SingleSelection)
         self._list.setFocusPolicy(Qt.NoFocus)
@@ -97,12 +98,13 @@ class HCommanderWindow(QtWidgets.QDialog):
         self.setLayout(layout)
         layout.addWidget(self._textbox)
         layout.addWidget(self._list)
-    
+
     def eventFilter(self, obj, event):
         if self._volatile:
             if event.type() == QtCore.QEvent.KeyPress and event.key() == Qt.Key_Space and event.isAutoRepeat():
                 return True
             elif event.type() == QtCore.QEvent.KeyRelease and event.key() == Qt.Key_Escape:
+                print 1
                 self.accept()
                 return True
 
@@ -154,6 +156,8 @@ class HCommanderWindow(QtWidgets.QDialog):
                 self._list.edit(index)
 
 class ItemDelegate(QStyledItemDelegate):
+    windowClosed = QtCore.Signal(object)
+
     def __init__(self, parent=None):
         super(ItemDelegate, self).__init__(parent)
         self._filter = None
@@ -203,30 +207,29 @@ class ItemDelegate(QStyledItemDelegate):
 
         editor.editingFinished.connect(self.editingFinished)
         editor.valueChanged.connect(self.valueChanged)
+        self.windowClosed.connect(lambda _: editor.editingFinished.emit())
 
         return editor
 
     def setEditorData(self, editor, index):
         # Disable undos while the user makes interactive edits
-        self.undo_context = hou.undos.disabler()
-        self.undo_context.__enter__()
+        editor.undo_context = hou.undos.disabler()
+        editor.undo_context.__enter__()
         parm_tuple = index.data(ParmTupleRole)
-        self.original_value = parm_tuple.eval()
+        editor.original_value = parm_tuple.eval()
 
     def setModelData(self, editor, model, index):
-        self.undo_context.__exit__(None, None, None)
-        self.undo_context = None
-        if editor.parm_tuple.eval() != self.original_value:
+        editor.undo_context.__exit__(None, None, None)
+        if editor.parm_tuple.eval() != editor.original_value:
             with hou.undos.group("Parameter Change"):
                 for i, parm in enumerate(editor.parm_tuple):
                     self.valueChanged(parm, editor.line_edits[i].text())
-            self.original_value = None
     
     def _closeEditor(self, editor, edit_hint):
+        self.windowClosed.disconnect()
         if edit_hint == QAbstractItemDelegate.EndEditHint.RevertModelCache:
-            editor.parm_tuple.set(self.original_value)
-            self.undo_context.__exit__(None, None, None)
-            self.undo_context = None
+            editor.parm_tuple.set(editor.original_value)
+            editor.undo_context.__exit__(None, None, None)
 
     def editingFinished(self):
         editor = self.sender()
@@ -246,13 +249,13 @@ class ItemDelegate(QStyledItemDelegate):
                 parm.set(value)
         else:
             parm.revertToDefaults()
-    
+
     def mousePressEvent(self, list, event):
         index = list.indexAt(event.pos())
         self._last_event = event
         list.edit(index)
         self._last_event = None
-
+        
 class ListView(QtWidgets.QListView):
     def mousePressEvent(self, event):
         QtWidgets.QListView.mousePressEvent(self, event)
@@ -363,14 +366,6 @@ class InputField(QtWidgets.QWidget):
     def _update(self, value):
         parm = self.sender().property("parm")
         self.valueChanged.emit(parm, value)
-
-    # def event(self, event):
-    #     print "1"
-    #     if event.type() == QtCore.QEvent.Type.WindowDeactivate:
-    #         print "2"
-    #         self.editingFinished.emit()
-    #     print "3"
-    #     return QtWidgets.QWidget.event(self, event)
 
 class _Label(QtWidgets.QWidget):
     doc = QtGui.QTextDocument()
