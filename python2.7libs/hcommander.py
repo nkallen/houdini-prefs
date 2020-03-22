@@ -10,6 +10,9 @@ import utility_ui
 from PySide2.QtWidgets import QAbstractItemView, QStyledItemDelegate, QWidget, QStyle, QAbstractItemDelegate
 from PySide2.QtCore import Signal
 
+# volatility is broken
+# bold for recent is broken
+ 
 """
 Commander is a "graphical" command line interface for Houdini's Network Editor. You can
 quickly run commands or edit nodes using only the keyboard.
@@ -32,8 +35,8 @@ def handleEvent(uievent, pending_actions):
             window = HCommanderWindow(uievent.editor, True)
             window.show()
             window.activateWindow()
-            window.finished.connect(reset_state)
             this.window = window
+            window.finished.connect(reset_state)
             return this, True
 
         return None, False
@@ -47,7 +50,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         return list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
     
     def __init__(self, editor, volatile):
-        super(HCommanderWindow, self).__init__()
+        super(HCommanderWindow, self).__init__(hou.qt.mainWindow())
         self._volatile = volatile
 
         self.editor = editor
@@ -63,7 +66,6 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._model = CompositeModel(self, models)
 
         self._setup_ui()
-        self.selection = (None, None)
 
     def handleEvent(self, uievent, pending_actions):
         return True
@@ -76,16 +78,18 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._textbox.returnPressed.connect(self.accept)
         self._textbox.setStyleSheet("font-size: 18px; height: 24px; border: none; background-color: transparent")
         self._textbox.textChanged.connect(self._text_changed)
+        self._textbox.setFocus()
+        self._textbox.setFocusPolicy(Qt.ClickFocus)
 
         self._list = ListView(self)
         self._proxy_model = AutoCompleteModel()
         self._proxy_model.setSourceModel(self._model)
         self._list.setModel(self._proxy_model)
         item_delegate = ItemDelegate(parent=self._list) # passing a parent= is necessary for child InputFields to inherit style
+        item_delegate.closeEditor.connect(self._textbox.setFocus)
         self._list.setItemDelegate(item_delegate) 
-        # self._list.clicked.connect(self.accept)
         self._list.setSelectionMode(QAbstractItemView.SingleSelection)
-        # self._list.setEditTriggers(QAbstractItemView.SelectedClicked | QAbstractItemView.DoubleClicked | QAbstractItemView.EditKeyPressed)
+        self._list.setFocusPolicy(Qt.NoFocus)
 
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(10, 10, 10, 10)
@@ -98,7 +102,6 @@ class HCommanderWindow(QtWidgets.QDialog):
         if self._volatile:
             if event.type() == QtCore.QEvent.KeyPress and event.key() == Qt.Key_Space and event.isAutoRepeat():
                 return True
-
             elif event.type() == QtCore.QEvent.KeyRelease and event.key() == Qt.Key_Escape:
                 self.accept()
                 return True
@@ -124,6 +127,8 @@ class HCommanderWindow(QtWidgets.QDialog):
         elif key == Qt.Key_Down:
             self._cursor(self._list.MoveDown, modifiers)
             return True
+        elif key == Qt.Key_Tab:
+            return True
 
         return False
 
@@ -140,18 +145,13 @@ class HCommanderWindow(QtWidgets.QDialog):
         parm_tuple = index.data(ParmTupleRole)
 
         if isinstance(parm_tuple, Action):
-            self.selection = (parm_tuple, 0)
+            pass # FIXME
         else:
             type = parm_tuple.parmTemplate().type()
             if type == parmTemplateType.Toggle:
                 parm_tuple.set([int(not parm_tuple.eval()[0])])
             else:
                 self._list.edit(index)
-    
-    def close(self):
-        QtWidgets.QDialog.close(self)
-        self.setParent(None)
-        this.window = None
 
 class ItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
@@ -263,7 +263,6 @@ class InputField(QtWidgets.QWidget):
     margin = 10
     valueChanged = QtCore.Signal(hou.Parm, str)
     editingFinished = QtCore.Signal()
-    mouseLeave = QtCore.Signal()
 
     @staticmethod
     def type2icon(type):
@@ -311,7 +310,6 @@ class InputField(QtWidgets.QWidget):
         if x < 0: return None
         width = HCommanderWindow.width - _Label.width - InputField.margin*2
         i = int(math.floor( x * len(self.line_edits) / width))
-        print i
         return self.line_edits[i]
 
     _axis = {Qt.Key_X: [1,0,0,0], Qt.Key_Y: [0,1,0,0], Qt.Key_Z: [0,0,1,0], Qt.Key_W: [0,0,0,1]}
@@ -366,13 +364,13 @@ class InputField(QtWidgets.QWidget):
         parm = self.sender().property("parm")
         self.valueChanged.emit(parm, value)
 
-    def event(self, event):
-        if event.type() == QtCore.QEvent.Type.WindowDeactivate:
-            self.editingFinished.emit()
-        return QtWidgets.QWidget.event(self, event)
-
-    def leaveEvent(self, event):
-        self.mouseLeave.emit()
+    # def event(self, event):
+    #     print "1"
+    #     if event.type() == QtCore.QEvent.Type.WindowDeactivate:
+    #         print "2"
+    #         self.editingFinished.emit()
+    #     print "3"
+    #     return QtWidgets.QWidget.event(self, event)
 
 class _Label(QtWidgets.QWidget):
     doc = QtGui.QTextDocument()
