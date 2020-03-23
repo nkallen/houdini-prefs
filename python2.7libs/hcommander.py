@@ -10,8 +10,6 @@ import utility_ui
 from PySide2.QtWidgets import QAbstractItemView, QStyledItemDelegate, QWidget, QStyle, QAbstractItemDelegate
 from PySide2.QtCore import Signal
 
-# volatility is broken
- 
 """
 Commander is a "graphical" command line interface for Houdini's Network Editor. You can
 quickly run commands or edit nodes using only the keyboard.
@@ -31,14 +29,15 @@ def handleEvent(uievent, pending_actions):
         return this, result
     else:
         if uievent.eventtype == 'keydown' and uievent.key == 'Space':
-            window = HCommanderWindow(uievent.editor, False)
-            window.show()
-            window.activateWindow()
-            this.window = window
-            window.finished.connect(reset_state)
-            return this, True
-
-        return None, False
+            this.window = HCommanderWindow(uievent.editor, True)
+        elif uievent.eventtype == 'keydown' and uievent.key == 'Ctrl+Space':
+            this.window = HCommanderWindow(uievent.editor, False)
+        else:
+            return None, False
+        this.window.show()
+        this.window.activateWindow()
+        this.window.finished.connect(reset_state)
+        return this, True
 
 class HCommanderWindow(QtWidgets.QDialog):
     width = 700
@@ -67,8 +66,12 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._setup_ui()
 
     def handleEvent(self, uievent, pending_actions):
-        return True
-        # FIXME
+        if self._volatile and uievent.eventtype == 'keyup' and uievent.key == 'Space':
+            self.accept()
+
+    def closeEditor(self):
+        if self._volatile: self.close()
+        else: self._textbox.setFocus()
 
     def _setup_ui(self):
         self.setStyleSheet(hou.qt.styleSheet())
@@ -85,7 +88,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._proxy_model.setSourceModel(self._model)
         self._list.setModel(self._proxy_model)
         item_delegate = ItemDelegate(parent=self._list) # passing a parent= is necessary for child InputFields to inherit style
-        item_delegate.closeEditor.connect(self._textbox.setFocus)
+        item_delegate.closeEditor.connect(self.closeEditor)
         self.finished.connect(item_delegate.windowClosed.emit)
         self._list.setItemDelegate(item_delegate) 
         self._list.setSelectionMode(QAbstractItemView.SingleSelection)
