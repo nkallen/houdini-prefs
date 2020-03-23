@@ -24,23 +24,30 @@ AutoCompleteRole = Qt.UserRole + 1
 WhichMatchRole = Qt.UserRole + 2
 
 this.window = None
+def reset_state(): this.window = None
+
 def handleEvent(uievent, pending_actions):
-    def reset_state(): this.window = None
 
     if this.window:
         result = this.window.handleEvent(uievent, pending_actions)
         return this, result
     else:
         if uievent.eventtype == 'keydown' and uievent.key == 'Space':
-            this.window = HCommanderWindow(uievent.editor, True)
+            this.window = HCommanderWindow(uievent.editor, volatile=True)
         elif uievent.eventtype == 'keyhit' and uievent.key == 'Ctrl+Space':
-            this.window = HCommanderWindow(uievent.editor, False)
+            this.window = HCommanderWindow(uievent.editor, volatile=False)
         else:
             return None, False
         this.window.finished.connect(reset_state)
         this.window.show()
         return this, True
 
+def edit(editor, parm_tuple):
+    assert not this.window
+    this.window = HCommanderWindow(editor, False, parm_tuple)
+    this.window.finished.connect(reset_state)
+    window.show()
+    
 class HCommanderWindow(QtWidgets.QDialog):
     width = 700
 
@@ -50,7 +57,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         parmTuples = list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
         return sorted(parmTuples, key=lambda x: x.isAtDefault())
     
-    def __init__(self, editor, volatile):
+    def __init__(self, editor, volatile=False, parm_tuple=None):
         super(HCommanderWindow, self).__init__(hou.qt.mainWindow())
         self._volatile = volatile
         self.editor = editor
@@ -60,33 +67,22 @@ class HCommanderWindow(QtWidgets.QDialog):
         self.setWindowOpacity(0.95)
 
         models = []
-        if len(hou.selectedNodes()) == 1:
-            pts = HCommanderWindow._filter(hou.selectedNodes()[0].parmTuples())
+        node = None
+        if parm_tuple: node = parm_tuple.node()
+        elif len(hou.selectedNodes()) == 1: node = hou.selectedNodes()[0]
+
+        if node:
+            pts = HCommanderWindow._filter(node.parmTuples())
             ptm = ParmTupleModel(pts, parent=self)
             models.append(ptm)
-            models.append(ActionModel(self, Action.find(hou.selectedNodes()[0])))
+            models.append(ActionModel(self, Action.find(node)))
         self._model = CompositeModel(self, models)
 
         self._setup_ui()
-
-    def handleEvent(self, uievent, pending_actions):
-        if self._volatile and uievent.eventtype == 'keyup' and uievent.key == 'Space':
-            self.accept()
-
-    def closeEditor(self):
-        if self._volatile: self.close()
-        else: self._textbox.setFocus()
-
-    def saveItem(self, index):
-        hou.session._hcommander_saved.append(index.data(ParmTupleRole))
-        if hou.session._hcommander_saved.parm_tuples:
-            print "ok"
-            self._saved.setVisible(True)
-
-    def unsaveItem(self, index):
-        hou.session._hcommander_saved.remove(index.data(ParmTupleRole))
-        if not hou.session._hcommander_saved.parm_tuples:
-            self._saved.setVisible(False)
+        if parm_tuple:
+            index = self._list.model().index_of(parm_tuple)
+            self._list.setCurrentIndex(index)
+            self._list.edit(index)
 
     def _setup_ui(self):
         self.setStyleSheet(hou.qt.styleSheet())
@@ -134,6 +130,25 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._saved = saved
         if not hou.session._hcommander_saved.parm_tuples:
             saved.setVisible(False)
+
+    def handleEvent(self, uievent, pending_actions):
+        if self._volatile and uievent.eventtype == 'keyup' and uievent.key == 'Space':
+            self.accept()
+
+    def closeEditor(self):
+        if self._volatile: self.close()
+        else: self._textbox.setFocus()
+
+    def saveItem(self, index):
+        hou.session._hcommander_saved.append(index.data(ParmTupleRole))
+        if hou.session._hcommander_saved.parm_tuples:
+            print "ok"
+            self._saved.setVisible(True)
+
+    def unsaveItem(self, index):
+        hou.session._hcommander_saved.remove(index.data(ParmTupleRole))
+        if not hou.session._hcommander_saved.parm_tuples:
+            self._saved.setVisible(False)
 
     def eventFilter(self, obj, event):
         if self._volatile:
@@ -235,6 +250,7 @@ class ItemDelegate(QStyledItemDelegate):
         painter.restore()
 
     def createEditor(self, parent, option, index):
+        print "here"
         which_match = index.data(WhichMatchRole)
         editor = InputField(parent, index, self._filter, highlight=False)
 
@@ -535,6 +551,10 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         self.beginResetModel()
         self.endResetModel()
     
+    def index_of(self, item):
+        source_index = self.sourceModel().index_of(item)
+        return self.mapFromSource(source_index)
+
 class ParmTupleModel(QtCore.QAbstractListModel):
     def __init__(self, parm_tuples, parent=None):
         super(ParmTupleModel, self).__init__(parent)
@@ -571,6 +591,10 @@ class ParmTupleModel(QtCore.QAbstractListModel):
         self.parm_tuples.remove(parm_tuple)
         self.endRemoveRows()
 
+    def index_of(self, item):
+        i = self.parm_tuples.index(item)
+        return self.index(i, 0)
+
 class ActionModel(QtCore.QAbstractListModel):
     def __init__(self, parent, actions):
         super(ActionModel, self).__init__(parent)
@@ -593,6 +617,9 @@ class ActionModel(QtCore.QAbstractListModel):
     def flags(self, index):
         return Qt.ItemIsSelectable | Qt.ItemIsEnabled
 
+    def index_of(self, item):
+        return None
+
 class CompositeModel(QtCore.QAbstractListModel):
     def __init__(self, parent, models):
         super(CompositeModel, self).__init__(parent)
@@ -610,6 +637,15 @@ class CompositeModel(QtCore.QAbstractListModel):
     
     def flags(self, index):
         return self.map_to_source(index).flags()
+    
+    def index_of(self, item):
+        offset = 0
+        for model in self._models:
+            index = model.index_of(item)
+            print "here"
+            if index: return self.index(index.row(), 0)
+            offset += model.rowCount()
+        return None
     
     def map_to_source(self, index):
         row = index.row()

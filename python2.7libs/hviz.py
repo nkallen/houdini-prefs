@@ -66,7 +66,7 @@ class Overlay(QtWidgets.QWidget):
                 button = Button(parm_tuple, parent=self)
                 button.move(posx, posy)
                 font_size = math.ceil(self._editor.lengthToScreen(1)/DPI/6)
-                button.setStyleSheet("QPushButton{padding:0;font-size: " + str(font_size) + "px; background-color: rgb(38,56,76);}")
+                button.setStyleSheet("QPushButton{ padding: 0; font-size: " + str(font_size) + "px; background-color: rgb(38,56,76);}")
                 button.clicked.connect(self._clicked)
                 button.show()
                 button.setProperty("parm_tuple", parm_tuple)
@@ -105,9 +105,7 @@ class Overlay(QtWidgets.QWidget):
             self.sender().setText(Overlay.summarize(parm_tuple))
         else:
             self.close()
-            window = hcommander.SetParamWindow(self._editor, parm_tuple, 0, False)
-            window.show()
-            window.activateWindow()
+            hcommander.edit(self._editor, parm_tuple)
 
 """
 NOTE: Currently the value ladder stuff doesn't work because ofa  bug in Houdini
