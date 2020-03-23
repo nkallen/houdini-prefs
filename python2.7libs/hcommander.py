@@ -18,6 +18,7 @@ quickly run commands or edit nodes using only the keyboard.
 """
 
 this = sys.modules[__name__]
+
 ParmTupleRole = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
 WhichMatchRole = Qt.UserRole + 2
@@ -46,20 +47,23 @@ class HCommanderWindow(QtWidgets.QDialog):
     @staticmethod
     def _filter(parmTuples):
         valid_types = { parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle }
-        return list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
+        parmTuples = list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
+        return sorted(parmTuples, key=lambda x: x.isAtDefault())
     
     def __init__(self, editor, volatile):
         super(HCommanderWindow, self).__init__(hou.qt.mainWindow())
         self._volatile = volatile
         self.editor = editor
         self.setMinimumWidth(HCommanderWindow.width)
-        self.setMinimumHeight(350)
+        self.setMinimumHeight(400)
         self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
 
         models = []
         if len(hou.selectedNodes()) == 1:
-            models.append(ParmTupleModel(self, HCommanderWindow._filter(hou.selectedNodes()[0].parmTuples())))
+            pts = HCommanderWindow._filter(hou.selectedNodes()[0].parmTuples())
+            ptm = ParmTupleModel(pts, parent=self)
+            models.append(ptm)
             models.append(ActionModel(self, Action.find(hou.selectedNodes()[0])))
         self._model = CompositeModel(self, models)
 
@@ -73,32 +77,63 @@ class HCommanderWindow(QtWidgets.QDialog):
         if self._volatile: self.close()
         else: self._textbox.setFocus()
 
+    def saveItem(self, index):
+        hou.session._hcommander_saved.append(index.data(ParmTupleRole))
+        if hou.session._hcommander_saved.parm_tuples:
+            print "ok"
+            self._saved.setVisible(True)
+
+    def unsaveItem(self, index):
+        hou.session._hcommander_saved.remove(index.data(ParmTupleRole))
+        if not hou.session._hcommander_saved.parm_tuples:
+            self._saved.setVisible(False)
+
     def _setup_ui(self):
         self.setStyleSheet(hou.qt.styleSheet())
-        self._textbox = QtWidgets.QLineEdit(self)
-        self._textbox.installEventFilter(self)
-        self._textbox.returnPressed.connect(self.accept)
-        self._textbox.setStyleSheet("font-size: 18px; height: 24px; border: none; background-color: transparent")
-        self._textbox.textChanged.connect(self._text_changed)
-        self._textbox.setFocus()
-        self._textbox.setFocusPolicy(Qt.ClickFocus)
+        textbox = QtWidgets.QLineEdit(self)
+        textbox.installEventFilter(self)
+        textbox.returnPressed.connect(self.accept)
+        textbox.setStyleSheet("font-size: 18px; height: 24px; border: none; background-color: transparent")
+        textbox.textChanged.connect(self._text_changed)
+        textbox.setFocus()
+        textbox.setFocusPolicy(Qt.ClickFocus)
+        self._textbox = textbox
 
-        self._list = ListView(self)
+        list = ListView(self)
         self._proxy_model = AutoCompleteModel()
         self._proxy_model.setSourceModel(self._model)
-        self._list.setModel(self._proxy_model)
-        item_delegate = ItemDelegate(parent=self._list) # passing a parent= is necessary for child InputFields to inherit style
+        list.setModel(self._proxy_model)
+        item_delegate = ItemDelegate(parent=list) # passing a parent= is necessary for child InputFields to inherit style
         item_delegate.closeEditor.connect(self.closeEditor)
+        list.ctrlClicked.connect(self.saveItem)
         self.finished.connect(item_delegate.windowClosed.emit)
-        self._list.setItemDelegate(item_delegate) 
-        self._list.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._list.setFocusPolicy(Qt.NoFocus)
+        list.setItemDelegate(item_delegate) 
+        list.setSelectionMode(QAbstractItemView.SingleSelection)
+        list.setFocusPolicy(Qt.NoFocus)
+        self._list = list
 
         layout = QtWidgets.QVBoxLayout()
         layout.setSpacing(10)
         self.setLayout(layout)
         layout.addWidget(self._textbox)
         layout.addWidget(self._list)
+
+        saved = ListView(self)
+        model = hou.session._hcommander_saved
+        saved.setModel(model)
+        saved.ctrlClicked.connect(self.unsaveItem)
+        item_delegate = ItemDelegate(parent=saved)
+        item_delegate.closeEditor.connect(self.closeEditor)
+        self.finished.connect(item_delegate.windowClosed.emit)
+        saved.setItemDelegate(item_delegate) 
+        saved.setSelectionMode(QAbstractItemView.SingleSelection)
+        saved.setFocusPolicy(Qt.NoFocus)
+        layout.addWidget(saved)
+        sizepolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)
+        saved.setSizePolicy(sizepolicy)
+        self._saved = saved
+        if not hou.session._hcommander_saved.parm_tuples:
+            saved.setVisible(False)
 
     def eventFilter(self, obj, event):
         if self._volatile:
@@ -139,7 +174,6 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._list.setCurrentIndex(index)
         
     def accept(self):
-        print "accept"
         if not self._list.selectedIndexes():
             self.reject()
             return
@@ -156,6 +190,7 @@ class HCommanderWindow(QtWidgets.QDialog):
             else:
                 self._list.edit(index)
 
+    # Losing focus should save any unsaved changes
     def changeEvent(self, event):
         if event.type() == QtCore.QEvent.ActivationChange:
             if not self.isActiveWindow():
@@ -259,17 +294,28 @@ class ItemDelegate(QStyledItemDelegate):
             parm.revertToDefaults()
 
     def mousePressEvent(self, list, event):
-        print event.modifiers # XXX
         index = list.indexAt(event.pos())
         self._last_event = event
         list.edit(index)
         self._last_event = None
         
 class ListView(QtWidgets.QListView):
+    ctrlClicked = QtCore.Signal(QtCore.QModelIndex)
+
+    def sizeHint(self):
+        s = QtWidgets.QListView.sizeHint(self)
+        rowheight = self.sizeHintForRow(0)
+        s.setHeight(min(s.height(), rowheight * self.model().rowCount()))
+        return s
+
     def mousePressEvent(self, event):
-        QtWidgets.QListView.mousePressEvent(self, event)
-        item_delegate = self.itemDelegate()
-        item_delegate.mousePressEvent(self, event)
+        if event.modifiers() == Qt.NoModifier:
+            QtWidgets.QListView.mousePressEvent(self, event)
+            item_delegate = self.itemDelegate()
+            item_delegate.mousePressEvent(self, event)
+        elif event.modifiers() & Qt.ControlModifier:
+            self.ctrlClicked.emit(self.indexAt(event.pos()))
+
 
 class InputField(QtWidgets.QWidget):
     label_width = 220
@@ -490,24 +536,21 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         self.endResetModel()
     
 class ParmTupleModel(QtCore.QAbstractListModel):
-    def __init__(self, parent, parmTuples):
+    def __init__(self, parm_tuples, parent=None):
         super(ParmTupleModel, self).__init__(parent)
-        self._parmTuples = sorted(parmTuples, key=lambda x: x.isAtDefault())
+        self.parm_tuples = parm_tuples
 
     def rowCount(self, parentindex=None):
-        return len(self._parmTuples)
+        return len(self.parm_tuples)
     
     def flags(self, index):
         return Qt.ItemIsSelectable | Qt.ItemIsEditable | Qt.ItemIsEnabled
 
-    def setData(self, index, value, role = QtCore.Qt.EditRole):
-        print "set data"
-
     def data(self, index, role):
         if not index.isValid(): return None
-        if not 0 <= index.row() < len(self._parmTuples): return None
+        if not 0 <= index.row() < len(self.parm_tuples): return None
 
-        parm_tuple = self._parmTuples[index.row()]
+        parm_tuple = self.parm_tuples[index.row()]
         type = parm_tuple.parmTemplate().type()
 
         if role == ParmTupleRole:
@@ -516,6 +559,17 @@ class ParmTupleModel(QtCore.QAbstractListModel):
             return [parm_tuple.parmTemplate().label()] + map(lambda x: x.name(), parm_tuple)
 
         return None
+    
+    def append(self, parm_tuple):
+        self.beginInsertRows(QtCore.QModelIndex(), len(self.parm_tuples) - 1, len(self.parm_tuples))
+        self.parm_tuples.append(parm_tuple)
+        self.endInsertRows()
+    
+    def remove(self, parm_tuple):
+        i = self.parm_tuples.index(parm_tuple)
+        self.beginRemoveRows(QtCore.QModelIndex(), i, i+1)
+        self.parm_tuples.remove(parm_tuple)
+        self.endRemoveRows()
 
 class ActionModel(QtCore.QAbstractListModel):
     def __init__(self, parent, actions):
@@ -618,3 +672,4 @@ __fs_watcher = QtCore.QFileSystemWatcher()
 __fs_watcher.addPath(Action.configfile)
 __fs_watcher.fileChanged.connect(Action.load)
 
+hou.session._hcommander_saved = ParmTupleModel([])
