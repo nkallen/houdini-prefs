@@ -11,7 +11,6 @@ from PySide2.QtWidgets import QAbstractItemView, QStyledItemDelegate, QWidget, Q
 from PySide2.QtCore import Signal
 
 # volatility is broken
-# bold for recent is broken
  
 """
 Commander is a "graphical" command line interface for Houdini's Network Editor. You can
@@ -93,7 +92,6 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._list.setFocusPolicy(Qt.NoFocus)
 
         layout = QtWidgets.QVBoxLayout()
-        layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
         self.setLayout(layout)
         layout.addWidget(self._textbox)
@@ -186,7 +184,7 @@ class ItemDelegate(QStyledItemDelegate):
             painter.fillRect(option.rect, hou.qt.getColor("ListBG"))
 
         painter.translate(option.rect.topLeft())
-        field = InputField(self.parent(), parm_tuple, self._filter, index.data(WhichMatchRole), index.data(AutoCompleteRole))
+        field = InputField(self.parent(), index, self._filter, highlight=option.state & QStyle.State_Selected)
         field.setGeometry(option.rect)
         field.render(painter, QtCore.QPoint(0, 0), QtGui.QRegion(0, 0, option.rect.width(), option.rect.height()), QWidget.RenderFlag.DrawChildren)
 
@@ -194,7 +192,7 @@ class ItemDelegate(QStyledItemDelegate):
 
     def createEditor(self, parent, option, index):
         which_match = index.data(WhichMatchRole)
-        editor = InputField(parent, index.data(ParmTupleRole), self._filter, which_match, index.data(AutoCompleteRole))
+        editor = InputField(parent, index, self._filter, highlight=False)
 
         # focus the best autocomplete match
         which_match = index.data(WhichMatchRole)
@@ -264,6 +262,7 @@ class ListView(QtWidgets.QListView):
         item_delegate.mousePressEvent(self, event)
 
 class InputField(QtWidgets.QWidget):
+    label_width = 220
     margin = 10
     valueChanged = QtCore.Signal(hou.Parm, str)
     editingFinished = QtCore.Signal()
@@ -277,15 +276,31 @@ class InputField(QtWidgets.QWidget):
         elif typename == "Toggle": iconname = "DATATYPES_boolean"
         elif typename == "String": iconname = "DATATYPES_string"
         return hou.qt.Icon(iconname)
-        
-    def __init__(self, parent, parm_tuple, filter, which_match, autocompletes):
+    
+    @staticmethod
+    def format(text, filter):
+        if not filter: return text
+        result = ""
+        i = 0
+        for char in text:
+            if i < len(filter) and char.upper() == filter[i].upper():
+                i += 1
+                result += "<b>{}</b>".format(char)
+            else:
+                result += char
+        return result
+
+    def __init__(self, parent, index, filter, highlight=False):
         super(InputField, self).__init__(parent)
+
+        autocompletes = index.data(AutoCompleteRole)
+        which_match = index.data(WhichMatchRole)
+        parm_tuple = index.data(ParmTupleRole)
         self.parm_tuple = parm_tuple
-        self._which_match = which_match
-        self.item_delegate = None
 
         layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(InputField.margin, InputField.margin, InputField.margin, InputField.margin)
+        layout.setContentsMargins(InputField.margin, 0, InputField.margin, 0)
+        self.setLayout(layout)
 
         icon = InputField.type2icon(parm_tuple.parmTemplate().type())
         if icon:
@@ -295,24 +310,36 @@ class InputField(QtWidgets.QWidget):
             label.setPixmap(pixmap)
             layout.addWidget(label)
 
-        layout.addWidget(_Label(filter, which_match, autocompletes))
+        label = QtWidgets.QLabel(InputField.format(autocompletes[0], filter if which_match == 0 else None))
+        label.setFixedWidth(InputField.label_width)
+        layout.addWidget(label)
 
         self.line_edits = []
         for i, parm in enumerate(parm_tuple):
+            edit_layout = QtWidgets.QVBoxLayout()
+            edit_layout.setContentsMargins(0,InputField.margin,0,0)
+            edit_layout.setSpacing(0)
             line_edit = QtWidgets.QLineEdit(self)
-            line_edit.setStyleSheet("QLineEdit { border: 1px solid black; background-color:" + hou.qt.getColor("PaneEmptyBG").name() + " }")
+            border = "yellow" if highlight and which_match and i == which_match - 1 else "black"
+            line_edit.setStyleSheet("QLineEdit { border: 1px solid " + border + "; background-color:" + hou.qt.getColor("PaneEmptyBG").name() + " }")
             line_edit.setText(str(parm_tuple.eval()[i]))
             line_edit.setProperty("parm", parm)
             line_edit.installEventFilter(self)
             line_edit.textEdited.connect(self._update)
             self.line_edits.append(line_edit)
-            layout.addWidget(line_edit)
-        self.setLayout(layout)
+            edit_layout.addWidget(line_edit)
+            label = QtWidgets.QLabel(InputField.format(autocompletes[i+1], filter if which_match == i + 1 else None))
+            label.setStyleSheet("font: italic 9px; color: darkgray")
+            sizepolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+            label.setSizePolicy(sizepolicy)
+            edit_layout.addWidget(label)
+            edit_layout.setAlignment(label, Qt.AlignHCenter)
+            layout.addLayout(edit_layout)
 
     def line_edit_at(self, pos):
-        x = pos.x() - _Label.width - InputField.margin*2
+        x = pos.x() - InputField.label_width - InputField.margin*2
         if x < 0: return None
-        width = HCommanderWindow.width - _Label.width - InputField.margin*2
+        width = HCommanderWindow.width - InputField.label_width - InputField.margin*2
         i = int(math.floor( x * len(self.line_edits) / width))
         return self.line_edits[i]
 
@@ -367,60 +394,6 @@ class InputField(QtWidgets.QWidget):
     def _update(self, value):
         parm = self.sender().property("parm")
         self.valueChanged.emit(parm, value)
-
-class _Label(QtWidgets.QWidget):
-    doc = QtGui.QTextDocument()
-    doc.setDocumentMargin(0)
-    width = 220
-
-    def __init__(self, filter, which_match, autocompletes):
-        super(_Label, self).__init__()
-        self._filter = filter
-        self._which_match = which_match
-        self._autocompletes = autocompletes
-        self._highlight_format = QtGui.QTextCharFormat()
-        self._highlight_format.setFontWeight(QtGui.QFont.Bold)
-
-    def sizeHint(self):
-        return QtCore.QSize(_Label.width, 1)
-
-    def paintEvent(self, event):
-        painter = QtGui.QPainter(self)
-        if self._filter:
-            self.doc.setPlainText("")
-            cursor = QtGui.QTextCursor(self.doc)
-            plain = cursor.charFormat()
-            cursor.mergeCharFormat(self._highlight_format)
-            highlight = cursor.charFormat()
-            filter = self._filter.upper()
-            first = True
-            for x, text in enumerate(self._autocompletes):
-                if x == self._which_match:
-                    i = 0
-                    for char in text:
-                        if i < len(self._filter) and char.upper() == filter[i]:
-                            i += 1
-                            cursor.setCharFormat(highlight)
-                        else:
-                            cursor.setCharFormat(plain)
-                        cursor.insertText(char)
-                else:
-                    cursor.setCharFormat(plain)
-                    cursor.insertText(text)
-                if first: cursor.insertText(": ")
-                else: cursor.insertText(" ")
-                first = False
-        else:
-            labels = self._autocompletes
-            first, rest = labels[0], labels[1:]
-            _Label.doc.setPlainText(first + ": " + " ".join(rest) + "")
-
-        padding = (self.geometry().height() - _Label.doc.size().height())/2
-        painter.translate(0, padding)
-
-        ctx = QtGui.QAbstractTextDocumentLayout.PaintContext()
-        _Label.doc.documentLayout().draw(painter, ctx)
-
 
 class AutoCompleteModel(QtCore.QSortFilterProxyModel):
     """
