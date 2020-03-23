@@ -10,6 +10,8 @@ import utility_ui
 from PySide2.QtWidgets import QAbstractItemView, QStyledItemDelegate, QWidget, QStyle, QAbstractItemDelegate
 from PySide2.QtCore import Signal
 
+# hodl down space
+
 """
 Commander is a "graphical" command line interface for Houdini's Network Editor. You can
 quickly run commands or edit nodes using only the keyboard.
@@ -30,13 +32,12 @@ def handleEvent(uievent, pending_actions):
     else:
         if uievent.eventtype == 'keydown' and uievent.key == 'Space':
             this.window = HCommanderWindow(uievent.editor, True)
-        elif uievent.eventtype == 'keydown' and uievent.key == 'Ctrl+Space':
+        elif uievent.eventtype == 'keyhit' and uievent.key == 'Ctrl+Space':
             this.window = HCommanderWindow(uievent.editor, False)
         else:
             return None, False
-        this.window.show()
-        this.window.activateWindow()
         this.window.finished.connect(reset_state)
+        this.window.show()
         return this, True
 
 class HCommanderWindow(QtWidgets.QDialog):
@@ -50,11 +51,10 @@ class HCommanderWindow(QtWidgets.QDialog):
     def __init__(self, editor, volatile):
         super(HCommanderWindow, self).__init__(hou.qt.mainWindow())
         self._volatile = volatile
-
         self.editor = editor
         self.setMinimumWidth(HCommanderWindow.width)
         self.setMinimumHeight(350)
-        self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
 
         models = []
@@ -139,6 +139,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._list.setCurrentIndex(index)
         
     def accept(self):
+        print "accept"
         if not self._list.selectedIndexes():
             self.reject()
             return
@@ -154,6 +155,11 @@ class HCommanderWindow(QtWidgets.QDialog):
                 parm_tuple.set([int(not parm_tuple.eval()[0])])
             else:
                 self._list.edit(index)
+
+    def changeEvent(self, event):
+        if event.type() == QtCore.QEvent.ActivationChange:
+            if not self.isActiveWindow():
+                self.close()
 
 class ItemDelegate(QStyledItemDelegate):
     windowClosed = QtCore.Signal(object)
@@ -253,6 +259,7 @@ class ItemDelegate(QStyledItemDelegate):
             parm.revertToDefaults()
 
     def mousePressEvent(self, list, event):
+        print event.modifiers # XXX
         index = list.indexAt(event.pos())
         self._last_event = event
         list.edit(index)
