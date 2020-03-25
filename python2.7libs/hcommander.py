@@ -10,8 +10,6 @@ import utility_ui
 from PySide2.QtWidgets import QAbstractItemView, QStyledItemDelegate, QWidget, QStyle, QAbstractItemDelegate
 from PySide2.QtCore import Signal
 
-# hodl down space
-
 """
 Commander is a "graphical" command line interface for Houdini's Network Editor. You can
 quickly run commands or edit nodes using only the keyboard.
@@ -27,7 +25,6 @@ this.window = None
 def reset_state(): this.window = None
 
 def handleEvent(uievent, pending_actions):
-
     if this.window:
         result = this.window.handleEvent(uievent, pending_actions)
         return this, result
@@ -63,7 +60,10 @@ class HCommanderWindow(QtWidgets.QDialog):
         self.editor = editor
         self.setMinimumWidth(HCommanderWindow.width)
         self.setMinimumHeight(400)
-        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
+        # Popups steal events, allowing us to receive the the space keyup to terminate volatile mode.
+        # However, it swallows useful events in non-volatile mode. THIS FIXES BUG: ctrl-space, escape, space -- opens once but should twice.
+        windowflag = Qt.Popup if self._volatile else Qt.Tool
+        self.setWindowFlags(windowflag | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
 
         models = []
@@ -142,7 +142,6 @@ class HCommanderWindow(QtWidgets.QDialog):
     def saveItem(self, index):
         hou.session._hcommander_saved.append(index.data(ParmTupleRole))
         if hou.session._hcommander_saved.parm_tuples:
-            print "ok"
             self._saved.setVisible(True)
 
     def unsaveItem(self, index):
@@ -157,7 +156,6 @@ class HCommanderWindow(QtWidgets.QDialog):
             elif event.type() == QtCore.QEvent.KeyRelease and event.key() == Qt.Key_Escape:
                 self.accept()
                 return True
-
         if event.type() == QtCore.QEvent.KeyPress:
             return self._handle_keys(event)
 
@@ -205,7 +203,7 @@ class HCommanderWindow(QtWidgets.QDialog):
             else:
                 self._list.edit(index)
 
-    # Losing focus should save any unsaved changes
+    # Losing focus should save any unsaved changes (triggered via `finished` signal)
     def changeEvent(self, event):
         if event.type() == QtCore.QEvent.ActivationChange:
             if not self.isActiveWindow():
@@ -250,7 +248,6 @@ class ItemDelegate(QStyledItemDelegate):
         painter.restore()
 
     def createEditor(self, parent, option, index):
-        print "here"
         which_match = index.data(WhichMatchRole)
         editor = InputField(parent, index, self._filter, highlight=False)
 
@@ -642,7 +639,6 @@ class CompositeModel(QtCore.QAbstractListModel):
         offset = 0
         for model in self._models:
             index = model.index_of(item)
-            print "here"
             if index: return self.index(index.row(), 0)
             offset += model.rowCount()
         return None
@@ -701,6 +697,8 @@ class Action(object):
         except Exception as e:
             print(e)
             print(self.fn)
+
+    def isAtDefault(self): return True
 
 Action.load()
 
