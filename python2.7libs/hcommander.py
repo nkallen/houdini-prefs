@@ -66,9 +66,9 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._setup_ui()
 
         if parm_tuple:
-            index = self._list.model().index_of(parm_tuple)
-            self._list.setCurrentIndex(index)
-            self._list.edit(index)
+            index = self.list.model().index_of(parm_tuple)
+            self.list.setCurrentIndex(index)
+            self.list.edit(index)
 
     def _setup_models(self, editor, parm_tuple):
         node = None
@@ -77,11 +77,14 @@ class HCommanderWindow(QtWidgets.QDialog):
         elif not hou.selectedNodes(): node = editor.pwd()
         models = []
         if node:
-            ptm = ParmTupleModel(node.parmTuples(), parent=self)
+            if node != editor.pwd():
+                ptm = ParmTupleModel(node.parmTuples(), parent=self)
+                models.append(ptm)
             am = Action.find(node)
-            ntm = NodeTypeModel(node.childTypeCategory().nodeTypes())
-            # models.append(ptm)
-            models.append(ntm)
+            category = node.childTypeCategory()
+            if category:
+                ntm = NodeTypeModel(category.nodeTypes())
+                models.append(ntm)
             models.append(ActionModel(am, parent=self))
         self._model = CompositeModel(models, parent=self)
 
@@ -107,13 +110,13 @@ class HCommanderWindow(QtWidgets.QDialog):
         list.setItemDelegate(item_delegate) 
         list.setSelectionMode(QAbstractItemView.SingleSelection)
         list.setFocusPolicy(Qt.NoFocus)
-        self._list = list
+        self.list = list
 
         layout = QtWidgets.QVBoxLayout()
         layout.setSpacing(10)
         self.setLayout(layout)
         layout.addWidget(self._textbox)
-        layout.addWidget(self._list)
+        layout.addWidget(self.list)
 
         saved = ListView(self)
         model = hou.session._hcommander_saved
@@ -164,19 +167,19 @@ class HCommanderWindow(QtWidgets.QDialog):
 
     def _text_changed(self, text):
         self._proxy_model.filter(text)
-        self._list.itemDelegate().filter(text)
-        index = self._list.model().index(0, 0)
-        self._list.setCurrentIndex(index)
+        self.list.itemDelegate().filter(text)
+        index = self.list.model().index(0, 0)
+        self.list.setCurrentIndex(index)
     
     def _handle_keys(self, event):
         key = event.key()
         modifiers = event.modifiers()
 
         if key == Qt.Key_Up:
-            self._cursor(self._list.MoveUp, modifiers)
+            self._cursor(self.list.MoveUp, modifiers)
             return True
         elif key == Qt.Key_Down:
-            self._cursor(self._list.MoveDown, modifiers)
+            self._cursor(self.list.MoveDown, modifiers)
             return True
         elif key == Qt.Key_Tab:
             return True
@@ -184,15 +187,15 @@ class HCommanderWindow(QtWidgets.QDialog):
         return False
 
     def _cursor(self, action, modifiers):
-        index = self._list.moveCursor(action, modifiers)
-        self._list.setCurrentIndex(index)
+        index = self.list.moveCursor(action, modifiers)
+        self.list.setCurrentIndex(index)
         
     def accept(self):
-        if not self._list.selectedIndexes():
+        if not self.list.selectedIndexes():
             self.reject()
             return
 
-        index = self._list.selectedIndexes()[0]
+        index = self.list.selectedIndexes()[0]
         callback = index.data(CallbackRole)
         callback(self)
 
@@ -325,7 +328,7 @@ class ListView(QtWidgets.QListView):
 
 
 class InputField(QtWidgets.QWidget):
-    label_width = 150
+    label_width = 160
     margin = 10
     valueChanged = QtCore.Signal(hou.Parm, str)
     editingFinished = QtCore.Signal()
@@ -585,7 +588,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
             return [parm_tuple.parmTemplate().label()] + map(lambda x: x.name(), parm_tuple)
         elif role == Qt.BackgroundRole:
             if parm_tuple.isAtDefault():
-                return Qt.QBrush(hou.qt.getColor("ListBG"))
+                return QtGui.QBrush(hou.qt.getColor("ListBG"))
         elif role == Qt.DecorationRole:
             ParmTupleModel.type2icon(parm_tuple.parmTemplate().type())
         elif role == CallbackRole:
@@ -632,7 +635,7 @@ class ActionModel(QtCore.QAbstractListModel):
         action = self._actions[index.row()]
 
         if role == ParmTupleRole:
-            return action
+            return None
         elif role == AutoCompleteRole:
             return (action.label, action.name)
         
