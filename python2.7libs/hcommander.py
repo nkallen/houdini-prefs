@@ -20,6 +20,8 @@ this = sys.modules[__name__]
 ParmTupleRole = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
 WhichMatchRole = Qt.UserRole + 2
+CallbackRole = Qt.UserRole + 3
+NodeTypeRole = Qt.UserRole + 4
 
 this.window = None
 def reset_state(): this.window = None
@@ -47,12 +49,6 @@ def edit(editor, parm_tuple):
     
 class HCommanderWindow(QtWidgets.QDialog):
     width = 700
-
-    @staticmethod
-    def _filter(parmTuples):
-        valid_types = { parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle }
-        parmTuples = list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
-        return sorted(parmTuples, key=lambda x: x.isAtDefault())
     
     def __init__(self, editor, volatile=False, parm_tuple=None):
         super(HCommanderWindow, self).__init__(hou.qt.mainWindow())
@@ -66,23 +62,28 @@ class HCommanderWindow(QtWidgets.QDialog):
         self.setWindowFlags(windowflag | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
 
-        models = []
-        node = None
-        if parm_tuple: node = parm_tuple.node()
-        elif len(hou.selectedNodes()) == 1: node = hou.selectedNodes()[0]
-
-        if node:
-            pts = HCommanderWindow._filter(node.parmTuples())
-            ptm = ParmTupleModel(pts, parent=self)
-            models.append(ptm)
-            models.append(ActionModel(self, Action.find(node)))
-        self._model = CompositeModel(self, models)
-
+        self._setup_models(editor, parm_tuple)
         self._setup_ui()
+
         if parm_tuple:
             index = self._list.model().index_of(parm_tuple)
             self._list.setCurrentIndex(index)
             self._list.edit(index)
+
+    def _setup_models(self, editor, parm_tuple):
+        node = None
+        if parm_tuple: node = parm_tuple.node()
+        elif len(hou.selectedNodes()) == 1: node = hou.selectedNodes()[0]
+        elif not hou.selectedNodes(): node = editor.pwd()
+        models = []
+        if node:
+            ptm = ParmTupleModel(node.parmTuples(), parent=self)
+            am = Action.find(node)
+            ntm = NodeTypeModel(node.childTypeCategory().nodeTypes())
+            # models.append(ptm)
+            models.append(ntm)
+            models.append(ActionModel(am, parent=self))
+        self._model = CompositeModel(models, parent=self)
 
     def _setup_ui(self):
         self.setStyleSheet(hou.qt.styleSheet())
@@ -192,16 +193,8 @@ class HCommanderWindow(QtWidgets.QDialog):
             return
 
         index = self._list.selectedIndexes()[0]
-        parm_tuple = index.data(ParmTupleRole)
-
-        if isinstance(parm_tuple, Action):
-            pass # FIXME
-        else:
-            type = parm_tuple.parmTemplate().type()
-            if type == parmTemplateType.Toggle:
-                parm_tuple.set([int(not parm_tuple.eval()[0])])
-            else:
-                self._list.edit(index)
+        callback = index.data(CallbackRole)
+        callback(self)
 
     # Losing focus should save any unsaved changes (triggered via `finished` signal)
     def changeEvent(self, event):
@@ -231,14 +224,15 @@ class ItemDelegate(QStyledItemDelegate):
         painter.setClipRect(option.rect)
 
         parm_tuple = index.data(ParmTupleRole)
+        background = index.data(Qt.BackgroundRole)
 
         if option.state & QStyle.State_Selected:
             # Draw the background but nothing else
             option.text = ""
             style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, option, painter, option.widget)
             text_rect = style.subElementRect(QtWidgets.QStyle.SE_ItemViewItemText, option, option.widget)
-        elif not parm_tuple.isAtDefault():
-            painter.fillRect(option.rect, hou.qt.getColor("ListBG"))
+        elif background:
+            painter.fillRect(option.rect, background)
 
         painter.translate(option.rect.topLeft())
         field = InputField(self.parent(), index, self._filter, highlight=option.state & QStyle.State_Selected)
@@ -331,21 +325,11 @@ class ListView(QtWidgets.QListView):
 
 
 class InputField(QtWidgets.QWidget):
-    label_width = 220
+    label_width = 150
     margin = 10
     valueChanged = QtCore.Signal(hou.Parm, str)
     editingFinished = QtCore.Signal()
 
-    @staticmethod
-    def type2icon(type):
-        typename = type.name()
-        iconname = None
-        if typename == "Float":    iconname = "DATATYPES_float"
-        elif typename == "Int":    iconname = "DATATYPES_int"
-        elif typename == "Toggle": iconname = "DATATYPES_boolean"
-        elif typename == "String": iconname = "DATATYPES_string"
-        return hou.qt.Icon(iconname)
-    
     @staticmethod
     def format(text, filter):
         if not filter: return text
@@ -365,15 +349,16 @@ class InputField(QtWidgets.QWidget):
         autocompletes = index.data(AutoCompleteRole)
         which_match = index.data(WhichMatchRole)
         parm_tuple = index.data(ParmTupleRole)
+        whats_this = index.data(Qt.WhatsThisRole)
+        icon = index.data(Qt.DecorationRole)
         self.parm_tuple = parm_tuple
 
         layout = QtWidgets.QHBoxLayout()
         layout.setContentsMargins(InputField.margin, 0, InputField.margin, 0)
         self.setLayout(layout)
 
-        icon = InputField.type2icon(parm_tuple.parmTemplate().type())
         if icon:
-            icon_size = hou.ui.scaledSize(16)
+            icon_size = hou.ui.scaledSize(64)
             pixmap = icon.pixmap(QtCore.QSize(icon_size, icon_size))
             label = QtWidgets.QLabel(self)
             label.setPixmap(pixmap)
@@ -384,26 +369,34 @@ class InputField(QtWidgets.QWidget):
         layout.addWidget(label)
 
         self.line_edits = []
-        for i, parm in enumerate(parm_tuple):
-            edit_layout = QtWidgets.QVBoxLayout()
-            edit_layout.setContentsMargins(0,InputField.margin,0,0)
-            edit_layout.setSpacing(0)
-            line_edit = QtWidgets.QLineEdit(self)
-            border = "yellow" if highlight and which_match and i == which_match - 1 else "black"
-            line_edit.setStyleSheet("QLineEdit { border: 1px solid " + border + "; background-color:" + hou.qt.getColor("PaneEmptyBG").name() + " }")
-            line_edit.setText(str(parm_tuple.eval()[i]))
-            line_edit.setProperty("parm", parm)
-            line_edit.installEventFilter(self)
-            line_edit.textEdited.connect(self._update)
-            self.line_edits.append(line_edit)
-            edit_layout.addWidget(line_edit)
-            label = QtWidgets.QLabel(InputField.format(autocompletes[i+1], filter if which_match == i + 1 else None))
-            label.setStyleSheet("font: italic 9px; color: darkgray")
-            sizepolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
-            label.setSizePolicy(sizepolicy)
-            edit_layout.addWidget(label)
-            edit_layout.setAlignment(label, Qt.AlignHCenter)
-            layout.addLayout(edit_layout)
+        if whats_this:
+            label = QtWidgets.QLabel(whats_this)
+            label.setFixedWidth(HCommanderWindow.width - InputField.label_width - InputField.margin)
+            layout.addWidget(label)
+        elif parm_tuple:
+            for i, parm in enumerate(parm_tuple):
+                edit_layout = QtWidgets.QVBoxLayout()
+                edit_layout.setContentsMargins(0,InputField.margin,0,0)
+                edit_layout.setSpacing(0)
+                line_edit = QtWidgets.QLineEdit(self)
+                border = "yellow" if highlight and which_match and i == which_match - 1 else "black"
+                line_edit.setStyleSheet("QLineEdit { border: 1px solid " + border + "; background-color:" + hou.qt.getColor("PaneEmptyBG").name() + " }")
+                line_edit.setText(str(parm_tuple.eval()[i]))
+                line_edit.setProperty("parm", parm)
+                line_edit.installEventFilter(self)
+                line_edit.textEdited.connect(self._update)
+                self.line_edits.append(line_edit)
+                edit_layout.addWidget(line_edit)
+                label = QtWidgets.QLabel(InputField.format(autocompletes[i+1], filter if which_match == i + 1 else None))
+                label.setStyleSheet("font: italic 9px; color: darkgray")
+                sizepolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+                label.setSizePolicy(sizepolicy)
+                edit_layout.addWidget(label)
+                edit_layout.setAlignment(label, Qt.AlignHCenter)
+                layout.addLayout(edit_layout)
+        else:
+            spacer = QtWidgets.QSpacerItem(1,1, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Fixed)
+            layout.addStretch()
 
     def line_edit_at(self, pos):
         x = pos.x() - InputField.label_width - InputField.margin*2
@@ -553,9 +546,25 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         return self.mapFromSource(source_index)
 
 class ParmTupleModel(QtCore.QAbstractListModel):
+    @staticmethod
+    def type2icon(type):
+        typename = type.name()
+        iconname = None
+        if typename == "Float":    iconname = "DATATYPES_float"
+        elif typename == "Int":    iconname = "DATATYPES_int"
+        elif typename == "Toggle": iconname = "DATATYPES_boolean"
+        elif typename == "String": iconname = "DATATYPES_string"
+        return hou.qt.Icon(iconname)
+    
+    @staticmethod
+    def _filter(parmTuples):
+        valid_types = { parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle }
+        parmTuples = list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
+        return sorted(parmTuples, key=lambda x: x.isAtDefault())
+
     def __init__(self, parm_tuples, parent=None):
         super(ParmTupleModel, self).__init__(parent)
-        self.parm_tuples = parm_tuples
+        self.parm_tuples = ParmTupleModel._filter(parm_tuples)
 
     def rowCount(self, parentindex=None):
         return len(self.parm_tuples)
@@ -572,8 +581,15 @@ class ParmTupleModel(QtCore.QAbstractListModel):
 
         if role == ParmTupleRole:
             return parm_tuple 
-        if role == AutoCompleteRole:
+        elif role == AutoCompleteRole:
             return [parm_tuple.parmTemplate().label()] + map(lambda x: x.name(), parm_tuple)
+        elif role == Qt.BackgroundRole:
+            if parm_tuple.isAtDefault():
+                return Qt.QBrush(hou.qt.getColor("ListBG"))
+        elif role == Qt.DecorationRole:
+            ParmTupleModel.type2icon(parm_tuple.parmTemplate().type())
+        elif role == CallbackRole:
+            return ParmTupleModel.Callback(index)
 
         return None
     
@@ -592,8 +608,20 @@ class ParmTupleModel(QtCore.QAbstractListModel):
         i = self.parm_tuples.index(item)
         return self.index(i, 0)
 
+    class Callback():
+        def __init__(self, index):
+            self._index = index
+
+        def __call__(self, hcommander):
+            parm_tuple = self._index.data(ParmTupleRole)
+            type = parm_tuple.parmTemplate().type()
+            if type == parmTemplateType.Toggle:
+                parm_tuple.set([int(not parm_tuple.eval()[0])])
+            else:
+                hcommander.list.edit(self._index)
+
 class ActionModel(QtCore.QAbstractListModel):
-    def __init__(self, parent, actions):
+    def __init__(self, actions, parent=None):
         super(ActionModel, self).__init__(parent)
         self._actions = actions
 
@@ -605,8 +633,7 @@ class ActionModel(QtCore.QAbstractListModel):
 
         if role == ParmTupleRole:
             return action
-
-        if role == AutoCompleteRole:
+        elif role == AutoCompleteRole:
             return (action.label, action.name)
         
         return None
@@ -617,8 +644,82 @@ class ActionModel(QtCore.QAbstractListModel):
     def index_of(self, item):
         return None
 
+import houdinihelp
+from houdinihelp.server import get_houdini_app
+
+class NodeTypeModel(QtCore.QAbstractListModel):
+    app = houdinihelp.server.get_houdini_app()
+    type2tooltip = {}
+
+    @staticmethod
+    def filter(node_types):
+        visible = list(nt for nt in node_types.values()
+            if not nt.hidden() and not nt.deprecated())
+        return visible
+
+    def __init__(self, node_types, parent=None):
+        super(NodeTypeModel, self).__init__(parent)
+        self._node_types = NodeTypeModel.filter(node_types)
+
+    def rowCount(self, parentindex=None):
+        return len(self._node_types)
+    
+    def data(self, index, role):
+        node_type = self._node_types[index.row()]
+    
+        if role == AutoCompleteRole:
+            return (node_type.description(), "")
+        elif role == Qt.WhatsThisRole:
+            if node_type in NodeTypeModel.type2tooltip: return NodeTypeModel.type2tooltip[node_type]
+            # FIXME load from a file since it's too slow!
+            with NodeTypeModel.app.app_context():
+                url = houdinihelp.api.urlToPath(node_type.defaultHelpUrl())
+                tooltip = houdinihelp.api.getTooltip(url)
+                NodeTypeModel.type2tooltip[node_type] = tooltip
+            return NodeTypeModel.type2tooltip[node_type]
+        elif role == Qt.DecorationRole:
+            try: return hou.qt.Icon(node_type.icon())
+            except: pass
+        elif role == CallbackRole:
+            return NodeTypeModel.Callback(index)
+        elif role == NodeTypeRole:
+            return node_type
+
+        return None
+
+    def flags(self, index):
+        return Qt.ItemIsSelectable | Qt.ItemIsEnabled
+
+    def index_of(self, item):
+        return None
+
+    class Callback():
+        def __init__(self, index):
+            self._index = index
+
+        def __call__(self, hcommander):
+            path = hcommander.editor.pwd().path()
+            new_node = hou.node(path).createNode(self._index.data(NodeTypeRole).name())
+
+            selected = hou.selectedNodes()
+            if selected:
+                ninputs = new_node.type().maxNumInputs()
+                if ninputs > 1:
+                    selected.sort(key=lambda n: n.position().x())
+
+                index = 0
+                for i in range(len(selected)):
+                    if selected[i].type().maxNumOutputs() > 0 and index < ninputs:
+                        new_node.setInput(index, selected[i])
+                        index += 1
+
+            new_node.moveToGoodPosition(move_inputs=False)
+            new_node.setSelected(True, clear_all_selected=True)
+
+            hcommander.close()
+
 class CompositeModel(QtCore.QAbstractListModel):
-    def __init__(self, parent, models):
+    def __init__(self, models, parent=None):
         super(CompositeModel, self).__init__(parent)
         self._models = models
         
@@ -697,8 +798,6 @@ class Action(object):
         except Exception as e:
             print(e)
             print(self.fn)
-
-    def isAtDefault(self): return True
 
 Action.load()
 
