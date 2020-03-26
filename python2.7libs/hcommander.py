@@ -102,6 +102,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         list = ListView(self)
         self._proxy_model = AutoCompleteModel()
         self._proxy_model.setSourceModel(self._model)
+        self._proxy_model.sort(0, Qt.AscendingOrder)
         list.setModel(self._proxy_model)
         item_delegate = ItemDelegate(parent=list) # passing a parent= is necessary for child InputFields to inherit style
         item_delegate.closeEditor.connect(self.closeEditor)
@@ -518,15 +519,19 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
     def data(self, index, role):
         if role == WhichMatchRole:
             if not self._filter: return None
-        
-            bitsets = self._bitsetss[self.mapToSource(index).row()]
             selector_bitset, selector_text = self._filter
 
+            # first check for exact matches
+            autocompletes = index.data(AutoCompleteRole)
+            for i, text in enumerate(autocompletes):
+                if text.upper() == selector_text: return i
+
+            bitsets = self._bitsetss[self.mapToSource(index).row()]
+
             # check every character is present in any of the labels or names ...
-            i = 0
-            for bitset in bitsets:
-                if bitset & selector_bitset == selector_bitset: return i
-                i += 1
+            for i, bitset in enumerate(bitsets):
+                if bitset & selector_bitset == selector_bitset:
+                    return i
             return None
         else:
             return super(AutoCompleteModel, self).data(index, role)
@@ -547,6 +552,40 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
     def index_of(self, item):
         source_index = self.sourceModel().index_of(item)
         return self.mapFromSource(source_index)
+    
+    def lessThan(self, left, right):
+        if not self._filter: return False
+        _, selector_text = self._filter
+
+        lautocompletes = left.data(AutoCompleteRole)
+        rautocompletes = right.data(AutoCompleteRole)
+
+        return AutoCompleteModel.score(lautocompletes, selector_text) > AutoCompleteModel.score(rautocompletes, selector_text)
+
+    @staticmethod
+    def score(autocompletes, selector_text):
+        len_selector = len(selector_text)
+        maxscore = 0
+        for text in autocompletes:
+            # exact match?
+            text = text.upper()
+            if text == selector_text: return sys.maxint
+
+            score = j = last_match = 0
+            new_word = False
+            for i, char in enumerate(text):
+                if char == selector_text[j]:
+                    if i == 0: score += 3              # beginning of text
+                    if new_word: score += 2            # beginning of word
+                    if i == last_match + 1: score += 1 # adjacent letters
+                    last_match = i
+                    j += 1
+                    if len_selector == j: break
+
+                if char == ' ': new_word = True
+                else: new_word = False
+            maxscore = max(maxscore, score)
+        return maxscore
 
 class ParmTupleModel(QtCore.QAbstractListModel):
     @staticmethod
@@ -671,7 +710,7 @@ class NodeTypeModel(QtCore.QAbstractListModel):
         node_type = self._node_types[index.row()]
     
         if role == AutoCompleteRole:
-            return (node_type.description(), "")
+            return [node_type.description()]
         elif role == Qt.WhatsThisRole:
             if node_type in NodeTypeModel.type2tooltip: return NodeTypeModel.type2tooltip[node_type]
             # FIXME load from a file since it's too slow!
