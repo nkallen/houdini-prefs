@@ -463,13 +463,6 @@ class InputField(QtWidgets.QWidget):
         self.valueChanged.emit(parm, value)
 
 class AutoCompleteModel(QtCore.QSortFilterProxyModel):
-    """
-    This is a custom autocompleter that can match either the "label" or the "name(s)" in an item. Its key
-    feature is when a user types "upr" it can match "upper", "super", etc. which differs from the
-    default QT prefix/suffix matching. Items have labels like "translation" and names like "tx", "ty",
-    etc.
-    """
-
     def __init__(self, parent=None):
         super(AutoCompleteModel, self).__init__(parent)
         self._filter = None
@@ -587,6 +580,25 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
                 else: new_word = False
             maxscore = max(maxscore, score)
         return maxscore
+
+    @staticmethod
+    def best_match(text, selector):
+        m = len(text); n = len(selector)
+        table = [[0 for k in range(m+1)] for l in range(n+1)] 
+        for i in range(m + 1): 
+            for j in range(n + 1): 
+                if i == 0 or j == 0:
+                    table[j][i] = 0
+                elif text[i-1] == selector[j-1]:
+                    if   i-1 == 0:            incr = 2
+                    elif text[i-2] == ' ':    incr = 2
+                    else:                     incr = 0
+                    prev = table[j-1][i-1]
+                    pmax = max(table[j-1])
+                    table[j][i] = max(prev + incr + 1, pmax + incr)
+                else: 
+                    table[j][i] = 0
+        return table
 
 class ParmTupleModel(QtCore.QAbstractListModel):
     @staticmethod
