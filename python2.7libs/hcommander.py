@@ -584,21 +584,38 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
     @staticmethod
     def best_match(text, selector):
         m = len(text); n = len(selector)
-        table = [[0 for k in range(m+1)] for l in range(n+1)] 
-        for i in range(m + 1): 
-            for j in range(n + 1): 
-                if i == 0 or j == 0:
-                    table[j][i] = 0
-                elif text[i-1] == selector[j-1]:
-                    if   i-1 == 0:            incr = 2
+        table = [[(-1,0) for k in range(m+1)] for l in range(n+1)] 
+        for j in range(1, n+1): 
+            prevmax = -1; iprevmax = 0
+            for i in range(1, m+1):
+                _, prev = table[j-1][i-1]
+                if prev > prevmax: prevmax = prev; iprevmax = i-1
+                if text[i-1] == selector[j-1]:
+                    if   i == 1:              incr = 2
                     elif text[i-2] == ' ':    incr = 2
                     else:                     incr = 0
-                    prev = table[j-1][i-1]
-                    pmax = max(table[j-1])
-                    table[j][i] = max(prev + incr + 1, pmax + incr)
-                else: 
-                    table[j][i] = 0
-        return table
+                    if prev+incr+1 > prevmax+incr:
+                        table[j][i] = (i-1, prev+incr+1)
+                    else:
+                        table[j][i] = (iprevmax, prevmax+incr)
+
+        prev = 0; max = -1; pos = -1
+        for i in range(1, m+1):
+            prev_, score = table[n][i]
+            if score > max:
+                max = score
+                prev = prev_
+                pos = i
+        
+        result = [(pos, max)]
+        for i in range(n-1, 0, -1):
+            pos = prev
+            prev, max = table[i][prev]
+            result.append((pos, max))
+        return result
+
+        
+
 
 class ParmTupleModel(QtCore.QAbstractListModel):
     @staticmethod
