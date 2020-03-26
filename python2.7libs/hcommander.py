@@ -32,9 +32,11 @@ def handleEvent(uievent, pending_actions):
         return this, result
     else:
         if uievent.eventtype == 'keydown' and uievent.key == 'Space':
-            this.window = HCommanderWindow(uievent.editor, volatile=True)
+            this.window = HCommanderWindow(uievent.editor, volatile=True, selection=hou.selectedNodes())
         elif uievent.eventtype == 'keyhit' and uievent.key == 'Ctrl+Space':
-            this.window = HCommanderWindow(uievent.editor, volatile=False)
+            this.window = HCommanderWindow(uievent.editor, volatile=False, selection=hou.selectedNodes())
+        elif uievent.eventtype == 'keyhit' and uievent.key == 'Tab':
+            this.window = HCommanderWindow(uievent.editor, volatile=False, selection=[uievent.editor.pwd()])
         else:
             return None, False
         this.window.finished.connect(reset_state)
@@ -43,14 +45,14 @@ def handleEvent(uievent, pending_actions):
 
 def edit(editor, parm_tuple):
     assert not this.window
-    this.window = HCommanderWindow(editor, False, parm_tuple)
+    this.window = HCommanderWindow(editor, volatile=False, selection=[parm_tuple.node()], item=parm_tuple)
     this.window.finished.connect(reset_state)
     window.show()
     
 class HCommanderWindow(QtWidgets.QDialog):
     width = 700
     
-    def __init__(self, editor, volatile=False, parm_tuple=None):
+    def __init__(self, editor, volatile=False, selection=hou.selectedNodes(), item=None):
         super(HCommanderWindow, self).__init__(hou.qt.mainWindow())
         self._volatile = volatile
         self.editor = editor
@@ -62,19 +64,18 @@ class HCommanderWindow(QtWidgets.QDialog):
         self.setWindowFlags(windowflag | Qt.FramelessWindowHint | Qt.X11BypassWindowManagerHint)
         self.setWindowOpacity(0.95)
 
-        self._setup_models(editor, parm_tuple)
+        self._setup_models(editor, selection)
         self._setup_ui()
 
-        if parm_tuple:
-            index = self.list.model().index_of(parm_tuple)
+        if item:
+            index = self.list.model().index_of(item)
             self.list.setCurrentIndex(index)
             self.list.edit(index)
 
-    def _setup_models(self, editor, parm_tuple):
+    def _setup_models(self, editor, selection):
         node = None
-        if parm_tuple: node = parm_tuple.node()
-        elif len(hou.selectedNodes()) == 1: node = hou.selectedNodes()[0]
-        elif not hou.selectedNodes(): node = editor.pwd()
+        if   len(selection) == 1: node = selection[0]
+        elif len(selection) == 0: node = editor.pwd()
         models = []
         if node:
             if node != editor.pwd():
@@ -87,6 +88,9 @@ class HCommanderWindow(QtWidgets.QDialog):
                 models.append(ntm)
             models.append(ActionModel(am, parent=self))
         self._model = CompositeModel(models, parent=self)
+        self._proxy_model = AutoCompleteModel()
+        self._proxy_model.setSourceModel(self._model)
+        self._proxy_model.sort(0, Qt.AscendingOrder)
 
     def _setup_ui(self):
         self.setStyleSheet(hou.qt.styleSheet())
@@ -100,9 +104,6 @@ class HCommanderWindow(QtWidgets.QDialog):
         self._textbox = textbox
 
         list = ListView(self)
-        self._proxy_model = AutoCompleteModel()
-        self._proxy_model.setSourceModel(self._model)
-        self._proxy_model.sort(0, Qt.AscendingOrder)
         list.setModel(self._proxy_model)
         item_delegate = ItemDelegate(parent=list) # passing a parent= is necessary for child InputFields to inherit style
         item_delegate.closeEditor.connect(self.closeEditor)
@@ -111,6 +112,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         list.setItemDelegate(item_delegate) 
         list.setSelectionMode(QAbstractItemView.SingleSelection)
         list.setFocusPolicy(Qt.NoFocus)
+        list.clicked.connect(self.accept)
         self.list = list
 
         layout = QtWidgets.QVBoxLayout()
@@ -198,7 +200,7 @@ class HCommanderWindow(QtWidgets.QDialog):
 
         index = self.list.selectedIndexes()[0]
         callback = index.data(CallbackRole)
-        callback(self)
+        callback(index, self)
 
     # Losing focus should save any unsaved changes (triggered via `finished` signal)
     def changeEvent(self, event):
@@ -212,7 +214,7 @@ class ItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(ItemDelegate, self).__init__(parent)
         self._filter = None
-        self._last_event = None
+        self.event = None
         self.closeEditor.connect(self._closeEditor)
 
     def sizeHint(self, option, index):
@@ -255,8 +257,8 @@ class ItemDelegate(QStyledItemDelegate):
         editor.setFocusProxy(focus_proxy)
 
         # but if the user clicked on a field, focus that instead
-        if self._last_event:
-            clicked = editor.line_edit_at(self._last_event.pos())
+        if self.event:
+            clicked = editor.line_edit_at(self.event.pos())
             if clicked: editor.setFocusProxy(clicked)
 
         editor.editingFinished.connect(self.editingFinished)
@@ -303,15 +305,10 @@ class ItemDelegate(QStyledItemDelegate):
                 parm.set(value)
         else:
             parm.revertToDefaults()
-
-    def mousePressEvent(self, list, event):
-        index = list.indexAt(event.pos())
-        self._last_event = event
-        list.edit(index)
-        self._last_event = None
         
 class ListView(QtWidgets.QListView):
     ctrlClicked = QtCore.Signal(QtCore.QModelIndex)
+    clicked = QtCore.Signal(QtCore.QEvent)
 
     def sizeHint(self):
         s = QtWidgets.QListView.sizeHint(self)
@@ -321,9 +318,12 @@ class ListView(QtWidgets.QListView):
 
     def mousePressEvent(self, event):
         if event.modifiers() == Qt.NoModifier:
-            QtWidgets.QListView.mousePressEvent(self, event)
+            index = QtCore.QPersistentModelIndex(self.indexAt(event.pos()))
+            self.setCurrentIndex(index)
             item_delegate = self.itemDelegate()
-            item_delegate.mousePressEvent(self, event)
+            item_delegate.event = event
+            try: self.clicked.emit(index)
+            finally: item_delegate.event = None
         elif event.modifiers() & Qt.ControlModifier:
             self.ctrlClicked.emit(self.indexAt(event.pos()))
 
@@ -631,7 +631,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
         elif role == Qt.DecorationRole:
             ParmTupleModel.type2icon(parm_tuple.parmTemplate().type())
         elif role == CallbackRole:
-            return ParmTupleModel.Callback(index)
+            return self.callback
 
         return None
     
@@ -650,17 +650,13 @@ class ParmTupleModel(QtCore.QAbstractListModel):
         i = self.parm_tuples.index(item)
         return self.index(i, 0)
 
-    class Callback():
-        def __init__(self, index):
-            self._index = index
-
-        def __call__(self, hcommander):
-            parm_tuple = self._index.data(ParmTupleRole)
-            type = parm_tuple.parmTemplate().type()
-            if type == parmTemplateType.Toggle:
-                parm_tuple.set([int(not parm_tuple.eval()[0])])
-            else:
-                hcommander.list.edit(self._index)
+    def callback(self, index, hcommander):
+        parm_tuple = index.data(ParmTupleRole)
+        type = parm_tuple.parmTemplate().type()
+        if type == parmTemplateType.Toggle:
+            parm_tuple.set([int(not parm_tuple.eval()[0])])
+        else:
+            hcommander.list.edit(index)
 
 class ActionModel(QtCore.QAbstractListModel):
     def __init__(self, actions, parent=None):
@@ -723,7 +719,7 @@ class NodeTypeModel(QtCore.QAbstractListModel):
             try: return hou.qt.Icon(node_type.icon())
             except: pass
         elif role == CallbackRole:
-            return NodeTypeModel.Callback(index)
+            return self.callback
         elif role == NodeTypeRole:
             return node_type
 
@@ -735,30 +731,26 @@ class NodeTypeModel(QtCore.QAbstractListModel):
     def index_of(self, item):
         return None
 
-    class Callback():
-        def __init__(self, index):
-            self._index = index
+    def callback(self, index, hcommander):
+        path = hcommander.editor.pwd().path()
+        new_node = hou.node(path).createNode(index.data(NodeTypeRole).name())
 
-        def __call__(self, hcommander):
-            path = hcommander.editor.pwd().path()
-            new_node = hou.node(path).createNode(self._index.data(NodeTypeRole).name())
+        selected = hou.selectedNodes()
+        if selected:
+            ninputs = new_node.type().maxNumInputs()
+            if ninputs > 1:
+                selected = sorted(selected, key=lambda n: n.position().x())
 
-            selected = hou.selectedNodes()
-            if selected:
-                ninputs = new_node.type().maxNumInputs()
-                if ninputs > 1:
-                    selected.sort(key=lambda n: n.position().x())
+            index = 0
+            for i in range(len(selected)):
+                if selected[i].type().maxNumOutputs() > 0 and index < ninputs:
+                    new_node.setInput(index, selected[i])
+                    index += 1
 
-                index = 0
-                for i in range(len(selected)):
-                    if selected[i].type().maxNumOutputs() > 0 and index < ninputs:
-                        new_node.setInput(index, selected[i])
-                        index += 1
+        new_node.moveToGoodPosition(move_inputs=False)
+        new_node.setSelected(True, clear_all_selected=True)
 
-            new_node.moveToGoodPosition(move_inputs=False)
-            new_node.setSelected(True, clear_all_selected=True)
-
-            hcommander.close()
+        hcommander.close()
 
 class CompositeModel(QtCore.QAbstractListModel):
     def __init__(self, models, parent=None):
