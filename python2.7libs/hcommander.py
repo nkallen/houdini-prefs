@@ -214,7 +214,7 @@ class ItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(ItemDelegate, self).__init__(parent)
         self._filter = None
-        self.event = None
+        self._triggering_event = None
         self.closeEditor.connect(self._closeEditor)
 
     def sizeHint(self, option, index):
@@ -257,8 +257,8 @@ class ItemDelegate(QStyledItemDelegate):
         editor.setFocusProxy(focus_proxy)
 
         # but if the user clicked on a field, focus that instead
-        if self.event:
-            clicked = editor.line_edit_at(self.event.pos())
+        if self._triggering_event:
+            clicked = editor.line_edit_at(self._triggering_event.pos())
             if clicked: editor.setFocusProxy(clicked)
 
         editor.editingFinished.connect(self.editingFinished)
@@ -277,6 +277,7 @@ class ItemDelegate(QStyledItemDelegate):
     def setModelData(self, editor, model, index):
         editor.undo_context.__exit__(None, None, None)
         if editor.parm_tuple.eval() != editor.original_value:
+            editor.parm_tuple.set(editor.original_value)
             with hou.undos.group("Parameter Change"):
                 for i, parm in enumerate(editor.parm_tuple):
                     self.valueChanged(parm, editor.line_edits[i].text())
@@ -318,12 +319,12 @@ class ListView(QtWidgets.QListView):
 
     def mousePressEvent(self, event):
         if event.modifiers() == Qt.NoModifier:
-            index = QtCore.QPersistentModelIndex(self.indexAt(event.pos()))
+            index = self.indexAt(event.pos())
             self.setCurrentIndex(index)
             item_delegate = self.itemDelegate()
-            item_delegate.event = event
+            item_delegate._triggering_event = event
             try: self.clicked.emit(index)
-            finally: item_delegate.event = None
+            finally: item_delegate._triggering_event = None
         elif event.modifiers() & Qt.ControlModifier:
             self.ctrlClicked.emit(self.indexAt(event.pos()))
 
@@ -385,7 +386,7 @@ class InputField(QtWidgets.QWidget):
                 line_edit = QtWidgets.QLineEdit(self)
                 border = "yellow" if highlight and which_match and i == which_match - 1 else "black"
                 line_edit.setStyleSheet("QLineEdit { border: 1px solid " + border + "; background-color:" + hou.qt.getColor("PaneEmptyBG").name() + " }")
-                line_edit.setText(str(parm_tuple.eval()[i]))
+                line_edit.setText(str(parm_tuple[i].eval()))
                 line_edit.setProperty("parm", parm)
                 line_edit.installEventFilter(self)
                 line_edit.textEdited.connect(self._update)
@@ -749,6 +750,8 @@ class NodeTypeModel(QtCore.QAbstractListModel):
 
         new_node.moveToGoodPosition(move_inputs=False)
         new_node.setSelected(True, clear_all_selected=True)
+        new_node.setDisplayFlag(True)
+        if hasattr(new_node, "setRenderFlag"): new_node.setRenderFlag(True)
 
         hcommander.close()
 
