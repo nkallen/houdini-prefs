@@ -164,8 +164,7 @@ class HCommanderWindow(QtWidgets.QDialog):
             if event.type() == QtCore.QEvent.KeyPress and event.key() == Qt.Key_Space and event.isAutoRepeat():
                 return True
             elif event.type() == QtCore.QEvent.KeyRelease and event.key() == Qt.Key_Escape:
-                # XXX ?
-                self.accept(self.list)
+                self.accept()
                 return True
         if event.type() == QtCore.QEvent.KeyPress:
             return self._handle_keys(event)
@@ -197,7 +196,8 @@ class HCommanderWindow(QtWidgets.QDialog):
         index = self.list.moveCursor(action, modifiers)
         self.list.setCurrentIndex(index)
         
-    def accept(self, list):
+    def accept(self, list=None):
+        list = list or self.list
         if not list.selectedIndexes():
             self.reject()
             return
@@ -763,7 +763,7 @@ class NodeTypeModel(QtCore.QAbstractListModel):
     def index_of(self, item):
         return None
 
-    def callback(self, index, hcommander):
+    def callback(self, index, hcommander, list):
         path = hcommander.editor.pwd().path()
         node_type = index.data(NodeTypeRole)
         new_node = hou.node(path).createNode(node_type.name())
