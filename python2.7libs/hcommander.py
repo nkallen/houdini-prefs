@@ -221,7 +221,7 @@ class ItemDelegate(QStyledItemDelegate):
         return QtCore.QSize(0, 50)
 
     def filter(self, text):
-        self._filter = text
+        self._filter = text.upper()
 
     def paint(self, painter, option, index):
         painter.save()
@@ -339,11 +339,12 @@ class InputField(QtWidgets.QWidget):
     def format(text, filter):
         if not filter: return text
         result = ""
-        i = 0
-        for char in text:
-            if i < len(filter) and char.upper() == filter[i].upper():
-                i += 1
+        alignment = AutoCompleteModel.align(text.upper(), filter)
+        current = alignment.pop()
+        for i, char in enumerate(text):
+            if i == current[0]:
                 result += "<b>{}</b>".format(char)
+                current = alignment.pop() if alignment else (None,None)
             else:
                 result += char
         return result
@@ -531,8 +532,7 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
             return super(AutoCompleteModel, self).data(index, role)
 
     def filter(self, text):
-        if text == "":
-            self._filter = None
+        if text == "": self._filter = None
 
         x = 0
         # construct a filter bitset
@@ -554,51 +554,32 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         lautocompletes = left.data(AutoCompleteRole)
         rautocompletes = right.data(AutoCompleteRole)
 
-        return AutoCompleteModel.score(lautocompletes, selector_text) > AutoCompleteModel.score(rautocompletes, selector_text)
+        align = lambda x: AutoCompleteModel.align(x.upper(), selector_text)
+        lalignments, ralignments = map(align, lautocompletes), map(align, rautocompletes)
+        score = lambda x: x[0][1]
+        lmax, rmax = max(lalignments, key=score), max(ralignments, key=score)
+
+        return score(lmax) > score(rmax)
 
     @staticmethod
-    def score(autocompletes, selector_text):
-        len_selector = len(selector_text)
-        maxscore = 0
-        for text in autocompletes:
-            # exact match?
-            text = text.upper()
-            if text == selector_text: return sys.maxint
-
-            score = j = last_match = 0
-            new_word = False
-            for i, char in enumerate(text):
-                if char == selector_text[j]:
-                    if i == 0: score += 3              # beginning of text
-                    if new_word: score += 2            # beginning of word
-                    if i == last_match + 1: score += 1 # adjacent letters
-                    last_match = i
-                    j += 1
-                    if len_selector == j: break
-
-                if char == ' ': new_word = True
-                else: new_word = False
-            maxscore = max(maxscore, score)
-        return maxscore
-
-    @staticmethod
-    def best_match(text, selector):
+    def align(text, selector):
+        """ A largest-common-substring algorithm with tweaks to prefer characters at the beginning of words (vmerge->VolumeMERGE note VoluMEmeRGE)"""
         m = len(text); n = len(selector)
-        table = [[(-1,0) for k in range(m+1)] for l in range(n+1)] 
+        table = [[(-1,-1) for k in range(m+1)] for l in range(n+1)] 
         for j in range(1, n+1): 
             prevmax = -1; iprevmax = 0
             for i in range(1, m+1):
-                _, prev = table[j-1][i-1]
+                k, prev = table[j-1][i-1]
                 if prev > prevmax: prevmax = prev; iprevmax = i-1
                 if text[i-1] == selector[j-1]:
-                    if   i == 1:              incr = 2
-                    elif text[i-2] == ' ':    incr = 2
+                    if   i == 1:              incr = 3 # beginning of string e.g., V,Volume merge
+                    elif text[i-2] == ' ':    incr = 2 # beginning of word         M,volume Merge
                     else:                     incr = 0
-                    if prev+incr+1 > prevmax+incr:
-                        table[j][i] = (i-1, prev+incr+1)
-                    else:
-                        table[j][i] = (iprevmax, prevmax+incr)
+                    contig = 2 if k == i-2 else 1      # len of contiguous match   POL,"POLyBevel old" vs "Polybevel OLd"
+                    # pick the path that gives the highest score to here:
+                    table[j][i] = (i-1, prev+incr+contig) if prev+incr+contig > prevmax+incr else (iprevmax, prevmax+incr)
 
+        # find the max score reaching the end
         prev = 0; max = -1; pos = -1
         for i in range(1, m+1):
             prev_, score = table[n][i]
@@ -607,15 +588,13 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
                 prev = prev_
                 pos = i
         
-        result = [(pos, max)]
+        # walk the path back to the beginning
+        result = [(pos-1, max)]
         for i in range(n-1, 0, -1):
             pos = prev
             prev, max = table[i][prev]
-            result.append((pos, max))
+            result.append((pos-1, max))
         return result
-
-        
-
 
 class ParmTupleModel(QtCore.QAbstractListModel):
     @staticmethod
