@@ -108,11 +108,11 @@ class HCommanderWindow(QtWidgets.QDialog):
         item_delegate = ItemDelegate(parent=list) # passing a parent= is necessary for child InputFields to inherit style
         item_delegate.closeEditor.connect(self.closeEditor)
         list.ctrlClicked.connect(self.saveItem)
+        list.clicked.connect(self.accept)
         self.finished.connect(item_delegate.windowClosed.emit)
         list.setItemDelegate(item_delegate) 
         list.setSelectionMode(QAbstractItemView.SingleSelection)
         list.setFocusPolicy(Qt.NoFocus)
-        list.clicked.connect(self.accept)
         self.list = list
 
         layout = QtWidgets.QVBoxLayout()
@@ -125,6 +125,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         model = hou.session._hcommander_saved
         saved.setModel(model)
         saved.ctrlClicked.connect(self.unsaveItem)
+        saved.clicked.connect(self.accept)
         item_delegate = ItemDelegate(parent=saved)
         item_delegate.closeEditor.connect(self.closeEditor)
         self.finished.connect(item_delegate.windowClosed.emit)
@@ -140,7 +141,7 @@ class HCommanderWindow(QtWidgets.QDialog):
 
     def handleEvent(self, uievent, pending_actions):
         if self._volatile and uievent.eventtype == 'keyup' and uievent.key == 'Space':
-            self.accept()
+            self.accept(self.list)
 
     def closeEditor(self):
         if self._volatile: self.close()
@@ -161,7 +162,8 @@ class HCommanderWindow(QtWidgets.QDialog):
             if event.type() == QtCore.QEvent.KeyPress and event.key() == Qt.Key_Space and event.isAutoRepeat():
                 return True
             elif event.type() == QtCore.QEvent.KeyRelease and event.key() == Qt.Key_Escape:
-                self.accept()
+                # XXX ?
+                self.accept(self.list)
                 return True
         if event.type() == QtCore.QEvent.KeyPress:
             return self._handle_keys(event)
@@ -193,14 +195,14 @@ class HCommanderWindow(QtWidgets.QDialog):
         index = self.list.moveCursor(action, modifiers)
         self.list.setCurrentIndex(index)
         
-    def accept(self):
-        if not self.list.selectedIndexes():
+    def accept(self, list):
+        if not list.selectedIndexes():
             self.reject()
             return
 
-        index = self.list.selectedIndexes()[0]
+        index = list.selectedIndexes()[0]
         callback = index.data(CallbackRole)
-        callback(index, self)
+        callback(index, self, list)
 
     # Losing focus should save any unsaved changes (triggered via `finished` signal)
     def changeEvent(self, event):
@@ -214,7 +216,7 @@ class ItemDelegate(QStyledItemDelegate):
     def __init__(self, parent=None):
         super(ItemDelegate, self).__init__(parent)
         self._filter = None
-        self._triggering_event = None
+        self.triggering_event = None
         self.closeEditor.connect(self._closeEditor)
 
     def sizeHint(self, option, index):
@@ -257,8 +259,8 @@ class ItemDelegate(QStyledItemDelegate):
         editor.setFocusProxy(focus_proxy)
 
         # but if the user clicked on a field, focus that instead
-        if self._triggering_event:
-            clicked = editor.line_edit_at(self._triggering_event.pos())
+        if self.triggering_event:
+            clicked = editor.line_edit_at(self.triggering_event.pos())
             if clicked: editor.setFocusProxy(clicked)
 
         editor.editingFinished.connect(self.editingFinished)
@@ -310,7 +312,7 @@ class ItemDelegate(QStyledItemDelegate):
         
 class ListView(QtWidgets.QListView):
     ctrlClicked = QtCore.Signal(QtCore.QModelIndex)
-    clicked = QtCore.Signal(QtCore.QEvent)
+    clicked = QtCore.Signal(ListView)
 
     def sizeHint(self):
         s = QtWidgets.QListView.sizeHint(self)
@@ -323,9 +325,9 @@ class ListView(QtWidgets.QListView):
             index = self.indexAt(event.pos())
             self.setCurrentIndex(index)
             item_delegate = self.itemDelegate()
-            item_delegate._triggering_event = event
-            try: self.clicked.emit(index)
-            finally: item_delegate._triggering_event = None
+            item_delegate.triggering_event = event
+            try: self.clicked.emit(self)
+            finally: item_delegate.triggering_event = None
         elif event.modifiers() & Qt.ControlModifier:
             self.ctrlClicked.emit(self.indexAt(event.pos()))
 
@@ -670,13 +672,13 @@ class ParmTupleModel(QtCore.QAbstractListModel):
         i = self.parm_tuples.index(item)
         return self.index(i, 0)
 
-    def callback(self, index, hcommander):
+    def callback(self, index, hcommander, list):
         parm_tuple = index.data(ParmTupleRole)
         type = parm_tuple.parmTemplate().type()
         if type == parmTemplateType.Toggle:
             parm_tuple.set([int(not parm_tuple.eval()[0])])
         else:
-            hcommander.list.edit(index)
+            list.edit(index)
 
     @staticmethod
     def record(parm_tuple):
