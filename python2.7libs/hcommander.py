@@ -20,6 +20,7 @@ this = sys.modules[__name__]
 ParmTupleRole    = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
 WhichMatchRole   = Qt.UserRole + 2
+CallbackRole     = Qt.UserRole + 3
 NodeTypeRole     = Qt.UserRole + 4
 SortKeyRole      = Qt.UserRole + 5
 
@@ -54,6 +55,7 @@ class HCommanderWindow(QtWidgets.QDialog):
     
     def __init__(self, editor, volatile=False, selection=hou.selectedNodes(), item=None):
         super(HCommanderWindow, self).__init__(hou.qt.mainWindow())
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose) # NECESSARY TO AVOID LEAKING MEMORY
         self._volatile = volatile
         self.editor = editor
         self.setMinimumWidth(HCommanderWindow.width)
@@ -79,7 +81,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         models = []
         if node:
             if node != editor.pwd():
-                ptm = ParmTupleModel(node.parmTuples())
+                ptm = ParmTupleModel(ParmTupleModel._filter(node.parmTuples()))
                 models.append(ptm)
             am = Action.find(node)
             category = node.childTypeCategory()
@@ -204,7 +206,7 @@ class HCommanderWindow(QtWidgets.QDialog):
         callback = index.data(CallbackRole)
         callback(index, self, list)
 
-    # Losing focus should save any unsaved changes (triggered via `finished` signal)
+    # Losing focus should save any unsaved changes (calling close will trigger save via `finished` signal)
     def changeEvent(self, event):
         if event.type() == QtCore.QEvent.ActivationChange:
             if not self.isActiveWindow():
@@ -312,7 +314,7 @@ class ItemDelegate(QStyledItemDelegate):
         
 class ListView(QtWidgets.QListView):
     ctrlClicked = QtCore.Signal(QtCore.QModelIndex)
-    clicked = QtCore.Signal(ListView)
+    clicked = QtCore.Signal(QtWidgets.QListView)
 
     def sizeHint(self):
         s = QtWidgets.QListView.sizeHint(self)
@@ -624,7 +626,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
 
     def __init__(self, parm_tuples, parent=None):
         super(ParmTupleModel, self).__init__(parent)
-        self.parm_tuples = ParmTupleModel._filter(parm_tuples)
+        self.parm_tuples = parm_tuples
 
     def rowCount(self, parentindex=None):
         return len(self.parm_tuples)
@@ -659,7 +661,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
     
     def append(self, parm_tuple):
         self.beginInsertRows(QtCore.QModelIndex(), len(self.parm_tuples) - 1, len(self.parm_tuples))
-        self.parm_tuples.append(parm_tuple)
+        self.parm_tuples.append(weakref.proxy(parm_tuple, self.remove))
         self.endInsertRows()
     
     def remove(self, parm_tuple):
