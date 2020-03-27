@@ -1,4 +1,4 @@
-import hou, nodegraph, os, csv, sys, traceback, math
+import hou, nodegraph, os, csv, sys, traceback, math, houdinihelp, weakref, utility_ui
 from hou import parmTemplateType
 from collections import defaultdict
 import nodegraphbase as base
@@ -6,9 +6,9 @@ from canvaseventtypes import *
 from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Qt
 from nodegraphbase import EventHandler
-import utility_ui
 from PySide2.QtWidgets import QAbstractItemView, QStyledItemDelegate, QWidget, QStyle, QAbstractItemDelegate
 from PySide2.QtCore import Signal
+from houdinihelp.server import get_houdini_app
 
 """
 Commander is a "graphical" command line interface for Houdini's Network Editor. You can
@@ -17,11 +17,11 @@ quickly run commands or edit nodes using only the keyboard.
 
 this = sys.modules[__name__]
 
-ParmTupleRole = Qt.UserRole 
+ParmTupleRole    = Qt.UserRole 
 AutoCompleteRole = Qt.UserRole + 1
-WhichMatchRole = Qt.UserRole + 2
-CallbackRole = Qt.UserRole + 3
-NodeTypeRole = Qt.UserRole + 4
+WhichMatchRole   = Qt.UserRole + 2
+NodeTypeRole     = Qt.UserRole + 4
+SortKeyRole      = Qt.UserRole + 5
 
 this.window = None
 def reset_state(): this.window = None
@@ -79,15 +79,15 @@ class HCommanderWindow(QtWidgets.QDialog):
         models = []
         if node:
             if node != editor.pwd():
-                ptm = ParmTupleModel(node.parmTuples(), parent=self)
+                ptm = ParmTupleModel(node.parmTuples())
                 models.append(ptm)
             am = Action.find(node)
             category = node.childTypeCategory()
             if category:
                 ntm = NodeTypeModel(category.nodeTypes())
                 models.append(ntm)
-            models.append(ActionModel(am, parent=self))
-        self._model = CompositeModel(models, parent=self)
+            models.append(ActionModel(am))
+        self._model = CompositeModel(models)
         self._proxy_model = AutoCompleteModel()
         self._proxy_model.setSourceModel(self._model)
         self._proxy_model.sort(0, Qt.AscendingOrder)
@@ -278,6 +278,7 @@ class ItemDelegate(QStyledItemDelegate):
         editor.undo_context.__exit__(None, None, None)
         if editor.parm_tuple.eval() != editor.original_value:
             editor.parm_tuple.set(editor.original_value)
+            ParmTupleModel.record(editor.parm_tuple)
             with hou.undos.group("Parameter Change"):
                 for i, parm in enumerate(editor.parm_tuple):
                     self.valueChanged(parm, editor.line_edits[i].text())
@@ -548,6 +549,10 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         return self.mapFromSource(source_index)
     
     def lessThan(self, left, right):
+        lkey, rkey = left.data(SortKeyRole), right.data(SortKeyRole)
+        if lkey < rkey: return True
+        if rkey < lkey: return False
+
         if not self._filter: return False
         _, selector_text = self._filter
 
@@ -597,6 +602,8 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         return result
 
 class ParmTupleModel(QtCore.QAbstractListModel):
+    history = set()
+
     @staticmethod
     def type2icon(type):
         typename = type.name()
@@ -611,7 +618,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
     def _filter(parmTuples):
         valid_types = { parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle }
         parmTuples = list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
-        return sorted(parmTuples, key=lambda x: x.isAtDefault())
+        return parmTuples
 
     def __init__(self, parm_tuples, parent=None):
         super(ParmTupleModel, self).__init__(parent)
@@ -641,6 +648,10 @@ class ParmTupleModel(QtCore.QAbstractListModel):
             ParmTupleModel.type2icon(parm_tuple.parmTemplate().type())
         elif role == CallbackRole:
             return self.callback
+        elif role == SortKeyRole:
+            if not parm_tuple.isAtDefault(): return 0
+            if ParmTupleModel.isrecorded(parm_tuple): return 1
+            else: return 2
 
         return None
     
@@ -667,6 +678,14 @@ class ParmTupleModel(QtCore.QAbstractListModel):
         else:
             hcommander.list.edit(index)
 
+    @staticmethod
+    def record(parm_tuple):
+        ParmTupleModel.history.add((parm_tuple.node().type(), parm_tuple.parmTemplate()))
+
+    @staticmethod
+    def isrecorded(parm_tuple):
+        return (parm_tuple.node().type(), parm_tuple.parmTemplate()) in ParmTupleModel.history
+
 class ActionModel(QtCore.QAbstractListModel):
     def __init__(self, actions, parent=None):
         super(ActionModel, self).__init__(parent)
@@ -691,12 +710,10 @@ class ActionModel(QtCore.QAbstractListModel):
     def index_of(self, item):
         return None
 
-import houdinihelp
-from houdinihelp.server import get_houdini_app
-
 class NodeTypeModel(QtCore.QAbstractListModel):
     app = houdinihelp.server.get_houdini_app()
     type2tooltip = {}
+    history = weakref.WeakSet()
 
     @staticmethod
     def filter(node_types):
@@ -731,6 +748,8 @@ class NodeTypeModel(QtCore.QAbstractListModel):
             return self.callback
         elif role == NodeTypeRole:
             return node_type
+        elif role == SortKeyRole:
+            return 0 if node_type in NodeTypeModel.history else 1
 
         return None
 
@@ -742,7 +761,8 @@ class NodeTypeModel(QtCore.QAbstractListModel):
 
     def callback(self, index, hcommander):
         path = hcommander.editor.pwd().path()
-        new_node = hou.node(path).createNode(index.data(NodeTypeRole).name())
+        node_type = index.data(NodeTypeRole)
+        new_node = hou.node(path).createNode(node_type.name())
 
         selected = hou.selectedNodes()
         if selected:
@@ -761,6 +781,7 @@ class NodeTypeModel(QtCore.QAbstractListModel):
         new_node.setDisplayFlag(True)
         if hasattr(new_node, "setRenderFlag"): new_node.setRenderFlag(True)
 
+        NodeTypeModel.history.add(node_type)
         hcommander.close()
 
 class CompositeModel(QtCore.QAbstractListModel):
