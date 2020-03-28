@@ -1,4 +1,4 @@
-import hou, nodegraph, os, csv, sys, traceback, math, houdinihelp, weakref, utility_ui
+import hou, nodegraph, os, csv, sys, traceback, math, houdinihelp, weakref, utility_ui, inspect
 from hou import parmTemplateType
 from collections import defaultdict
 import nodegraphbase as base
@@ -23,6 +23,7 @@ WhichMatchRole   = Qt.UserRole + 2
 CallbackRole     = Qt.UserRole + 3
 NodeTypeRole     = Qt.UserRole + 4
 SortKeyRole      = Qt.UserRole + 5
+ActionRole       = Qt.UserRole + 5
 
 this.window = None
 def reset_state(): this.window = None
@@ -36,7 +37,7 @@ def handleEvent(uievent, pending_actions):
             this.window = HCommanderWindow(uievent.editor, volatile=True, selection=hou.selectedNodes())
         elif uievent.eventtype == 'keyhit' and uievent.key == 'Ctrl+Space':
             this.window = HCommanderWindow(uievent.editor, volatile=False, selection=hou.selectedNodes())
-        elif uievent.eventtype == 'keyhit' and uievent.key == 'Tab':
+        elif uievent.eventtype == 'keyhit' and uievent.key == 'Shift+Tab':
             this.window = HCommanderWindow(uievent.editor, volatile=False, selection=[uievent.editor.pwd()])
         else:
             return None, False
@@ -75,9 +76,7 @@ class HCommanderWindow(QtWidgets.QDialog):
             self.list.edit(index)
 
     def _setup_models(self, editor, selection):
-        node = None
-        if   len(selection) == 1: node = selection[0]
-        elif len(selection) == 0: node = editor.pwd()
+        node = selection[0] if len(selection) == 1 else None
         models = []
         if node:
             if node != editor.pwd():
@@ -333,7 +332,6 @@ class ListView(QtWidgets.QListView):
         elif event.modifiers() & Qt.ControlModifier:
             self.ctrlClicked.emit(self.indexAt(event.pos()))
 
-
 class InputField(QtWidgets.QWidget):
     label_width = 160
     margin = 10
@@ -486,7 +484,7 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
                 for char in text.upper():
                     o = ord(char)
                     if o < 48: continue
-                    bitset |= 1 << ord(char) - 48 # inlude 0-9 ... A-Z
+                    bitset |= 1 << o - 48 # inlude 0-9 ... A-Z
                 bitsets.append(bitset)
             self._bitsetss.append(tuple(bitsets))
             i += 1
@@ -495,7 +493,7 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
         if not self._filter: return True
         selector_bitset, selector_text = self._filter
         if selector_bitset == 0: return True
-        
+
         labels = self.sourceModel().index(sourceRow, 0, sourceParent).data(AutoCompleteRole)
         bitsets = self._bitsetss[sourceRow]
 
@@ -537,14 +535,15 @@ class AutoCompleteModel(QtCore.QSortFilterProxyModel):
             return super(AutoCompleteModel, self).data(index, role)
 
     def filter(self, text):
-        if text == "": self._filter = None
-
-        x = 0
-        # construct a filter bitset
+        selector_bitset = 0
         text = text.upper()
         for char in text:
-            x |= 1 << ord(char) - 48
-        self._filter = (x, text)
+            o = ord(char)
+            if o < 48: continue
+            selector_bitset |= 1 << o - 48
+
+        if selector_bitset == 0: return
+        self._filter = (selector_bitset, text)
         self.beginResetModel()
         self.endResetModel()
     
@@ -701,11 +700,12 @@ class ActionModel(QtCore.QAbstractListModel):
     def data(self, index, role):
         action = self._actions[index.row()]
 
-        if role == ParmTupleRole:
-            return None
-        elif role == AutoCompleteRole:
-            return (action.label, action.name)
-        
+        if   role == ActionRole:       return action
+        elif role == AutoCompleteRole: return (action.label, action.name)
+        elif role == Qt.WhatsThisRole: return action.description
+        elif role == SortKeyRole:      return 100
+        elif role == CallbackRole:     return self.callback
+
         return None
 
     def flags(self, index):
@@ -713,6 +713,14 @@ class ActionModel(QtCore.QAbstractListModel):
 
     def index_of(self, item):
         return None
+    
+    def callback(self, index, hcommander, list):
+        action = index.data(ActionRole)
+        with hou.undos.group("Invoke custom user function"):
+            try: exec(action.fn, {}, {'hou': hou})
+            except Exception as e:
+                print(e)
+                print(self.fn)
 
 class NodeTypeModel(QtCore.QAbstractListModel):
     app = houdinihelp.server.get_houdini_app()
@@ -764,29 +772,30 @@ class NodeTypeModel(QtCore.QAbstractListModel):
         return None
 
     def callback(self, index, hcommander, list):
-        path = hcommander.editor.pwd().path()
-        node_type = index.data(NodeTypeRole)
-        new_node = hou.node(path).createNode(node_type.name())
+        with hou.undos.group("Create Node"):
+            path = hcommander.editor.pwd().path()
+            node_type = index.data(NodeTypeRole)
+            new_node = hou.node(path).createNode(node_type.name())
 
-        selected = hou.selectedNodes()
-        if selected:
-            ninputs = new_node.type().maxNumInputs()
-            if ninputs > 1:
-                selected = sorted(selected, key=lambda n: n.position().x())
+            selected = hou.selectedNodes()
+            if selected:
+                ninputs = new_node.type().maxNumInputs()
+                if ninputs > 1:
+                    selected = sorted(selected, key=lambda n: n.position().x())
 
-            index = 0
-            for i in range(len(selected)):
-                if selected[i].type().maxNumOutputs() > 0 and index < ninputs:
-                    new_node.setInput(index, selected[i])
-                    index += 1
+                index = 0
+                for i in range(len(selected)):
+                    if selected[i].type().maxNumOutputs() > 0 and index < ninputs:
+                        new_node.setInput(index, selected[i])
+                        index += 1
 
-        new_node.moveToGoodPosition(move_inputs=False)
-        new_node.setSelected(True, clear_all_selected=True)
-        new_node.setDisplayFlag(True)
-        if hasattr(new_node, "setRenderFlag"): new_node.setRenderFlag(True)
+            new_node.moveToGoodPosition(move_inputs=False)
+            new_node.setSelected(True, clear_all_selected=True)
+            new_node.setDisplayFlag(True)
+            if hasattr(new_node, "setRenderFlag"): new_node.setRenderFlag(True)
 
-        NodeTypeModel.history.add(node_type)
-        hcommander.close()
+            NodeTypeModel.history.add(node_type)
+            hcommander.close()
 
 class CompositeModel(QtCore.QAbstractListModel):
     def __init__(self, models, parent=None):
@@ -841,33 +850,31 @@ class Action(object):
     @staticmethod
     def load():
         print "Reloading hcommander actions..."
-        Action._actions = defaultdict(list)
+        Action._actions = defaultdict(lambda: defaultdict(list))
         with open(Action.configfile) as f:
             reader = csv.DictReader(f)
             for row in reader:
-                Action._actions[row["Selection"]].append(Action(row["Label"], row["Name"], row["fn"]))
+                klass = eval(row["Class"], {'hou': hou})
+                action = Action(row["Label"], row["Name"], row["Description"], row["fn"])
+                Action._actions[klass][row["Selection"]].append(action)
 
     @staticmethod
-    def find(selected_node):
-        selector = selected_node.type().name()
-        if selector in Action._actions:
-            return Action._actions[selector]
-        else:
-            return []
+    def find(obj):
+        selector = obj.type().name()
+        ancestors = inspect.getmro(obj.__class__)
+        result = []
+        for ancestor in ancestors:
+            if not ancestor in Action._actions: continue
+            actions_for_class = Action._actions[ancestor]
+            result += actions_for_class[""]
+            result += actions_for_class[selector]
+        return result
 
-    def __init__(self, label, name, fn):
+    def __init__(self, label, name, description, fn):
         self.label = label
         self.name = name
+        self.description = description
         self.fn = fn
-
-    def call(self):
-        try:
-            with hou.undos.group("Invoke custom user function"):
-                exec(self.fn, {}, {'hou': hou})
-            return True
-        except Exception as e:
-            print(e)
-            print(self.fn)
 
 Action.load()
 
