@@ -1,4 +1,4 @@
-Selection,Label,Name,fn,,,,
-line,Direction X,x,"hou.selectedNodes()[0].setParms({""dirx"": 1, ""diry"": 0, ""dirz"": 0})",,,,
-line,Direction Y,y,"hou.selectedNodes()[0].setParms({""dirx"": 0, ""diry"": 1, ""dirz"": 0})",,,,
-line,Direction Z,z,"hou.selectedNodes()[0].setParms({""dirx"": 0, ""diry"": 0, ""dirz"": 1})",,,,
+Class,Selection,Icon,Label,Name,Description,fn
+hou.Node,* < groupcreate,,Set group,g,,...
+hou.Node,grouprange,,First point,ff,,"hou.selectedNodes()[0].setParms({""groupname1"": ""first"", ""grouptype1"": 0, ""method1"": 2, ""start1"": 0, ""length1"": 1, ""invert1"": 0})"
+hou.Node,"matchesSelector(obj, ""grouprange"")",,Last point,ll,,"hou.selectedNodes()[0].setParms({""groupname1"": ""last"", ""grouptype1"": 0, ""method1"": 1, ""start1"": 0, ""end1"": 1, ""invert1"": 1})"

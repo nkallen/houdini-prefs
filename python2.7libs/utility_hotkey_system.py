@@ -1,7 +1,8 @@
-import hou, nodegraph, os, csv, sys
+import hou, nodegraph, os, csv, sys, traceback
 import hdefereval
 import types
 import ctypes
+import utility_ui
 from PySide2 import QtCore, QtWidgets, QtGui
 from utility_ui import *
 from canvaseventtypes import *
@@ -32,6 +33,11 @@ this.fs_watcher.fileChanged.connect(__load_actions)
 
 
 def invoke_action_from_key(uievent):
+    # Some normal keys that we override are volatile, like 'A'; these come as keydown/keyup rather
+    # than keyhit. We only process the 'keydown' and ignore the up event to prevent doubling.
+    if uievent.eventtype != 'keyhit' and uievent.eventtype != 'keydown':
+        return None, False
+
     editor = uievent.editor
 
     context = editor.pwd().childTypeCategory().name()
@@ -70,10 +76,10 @@ def execute_action_string(uievent, action):
     elif action.startswith('fn:'):
         try:
             with hou.undos.group("Invoke custom user function"):
-                exec(opfunc, {}, {'uievent': uievent, 'hou': hou})
+                exec(opfunc, None, {'uievent': uievent, 'hou': hou})
             return True
         except Exception as e:
-            print(e)
+            traceback.print_exc()
             print(opfunc)
     elif action.startswith('mn:'):
         menu = MenuProvider()
@@ -82,9 +88,9 @@ def execute_action_string(uievent, action):
             get_popup_menu_result(menu, uievent)
             return True
         except Exception as e:
-            print(e)
+            traceback.print_exc()
             print(opfunc)
-    
+
     return False
 
 
@@ -215,6 +221,87 @@ def createNewNode(editor, nodetypename, parms=None):
 
     return newNode
 
+#####################################
+
+def _dist(descendent, ancestor):
+    if descendent == ancestor:
+        return 0, True
+    
+    result = 0
+    any_found = False
+    for input in descendent.inputs():
+        d, found = _dist(input, ancestor)
+        any_found = any_found or found
+        if found:
+            result = max(result, 1 + d)
+    
+    return 1 + result, any_found
+
+def layout(uievent, items=()):
+    editor = uievent.editor
+    pos = editor.cursorPosition()
+    pwd = editor.pwd()
+    pwd.layoutChildren(items=items)
+    items = items or pwd.children()
+    itemset = set(items)
+    work = list(items)
+
+    endpoints = set()
+    while len(work) > 0:
+        item = work.pop()
+        viable_outputs = set(item.outputs()).intersection(itemset)
+        if viable_outputs:
+            for output in viable_outputs:
+                if output in itemset:
+                    work.append(output)
+        else:
+            endpoints.add(item)
+
+    for ancestor in items:
+        if ancestor in endpoints:
+            continue
+        maxdist = 0
+        for endpoint in endpoints:
+            d, found = _dist(endpoint, ancestor)
+            if found:
+                maxdist = max(maxdist, d)
+        position = ancestor.position()
+        y = list(endpoints)[0].position().y() + maxdist/2.0
+        ancestor.setPosition((math.floor(position.x()), y))
+    
+    for child in items:
+        snap_to_grid(child)
+
+def drag(include_ancestors=False, dx=0, dy=0):
+    items = set(hou.selectedItems())
+    if include_ancestors:
+        ancestors = set()
+        for node in items:
+            ancestors = ancestors.union(set(node.inputAncestors()))
+        items = items.union(ancestors)
+
+    with hou.undos.group("Move nodes"):
+        for selected in items:
+            position = selected.position()
+            position += hou.Vector2(dx, dy)
+            selected.setPosition(position)
+
+def move_selection_to_mouse(uievent, include_ancestors=False):
+
+    items = set(hou.selectedItems())
+    if not items: return
+    if include_ancestors:
+        ancestors = set()
+        for node in items:
+            ancestors = ancestors.union(set(node.inputAncestors()))
+        items = items.union(ancestors)
+
+    last = hou.selectedItems()[-1]
+    delta = uievent.editor.cursorPosition() - last.position()
+    with hou.undos.group("Move nodes"):
+        for item in items:
+            item.setPosition(item.position() + delta)
+
 # FIXME these belong in another file.
 #####################################
 
@@ -334,7 +421,6 @@ def toggleNetworkEditorGrid():
     networkEditor = hou.ui.paneTabUnderCursor()
     if networkEditor.type() == hou.paneTabType.NetworkEditor:
         networkEditor.setPref("gridmode", "2" if networkEditor.getPref("gridmode") != "2" else "0")
-
 
 
 def jumpUpOneLevel():

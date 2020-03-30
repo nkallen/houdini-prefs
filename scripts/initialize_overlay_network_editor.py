@@ -27,21 +27,21 @@ def initializeOverlayNetworkEditor():
 
 def initializeOverlayNetworkEditorDeferred():
     name = "animatrix_overlay_network_editor"
-    networkEditor = getWidgetByName(name)
+    network_editor = getWidgetByName(name)
 
     # FIXME we have to keep a reference to the window because it seems to switch during startup
     hou.session.mainQtWindow = hou.qt.mainWindow()
 
-    networkEditor.setParent(hou.qt.mainWindow(), QtCore.Qt.Tool)
-    networkEditor.setWindowFlags(networkEditor.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.X11BypassWindowManagerHint)
-    networkEditor.setWindowOpacity(overlayNetworkEditorOpacity)
+    network_editor.setParent(hou.qt.mainWindow(), QtCore.Qt.Tool)
+    network_editor.setWindowFlags(network_editor.windowFlags() | QtCore.Qt.FramelessWindowHint | QtCore.Qt.X11BypassWindowManagerHint)
+    network_editor.setWindowOpacity(overlaynetwork_editorOpacity)
 
-    networkEditor.show()
+    network_editor.show()
 
     pos, size = getViewportRenderViewPosSize()
 
-    networkEditor.move(pos.x(), pos.y() - networkEditorTopMaskHeight - 16)
-    networkEditor.resize(size.width(), size.height() + networkEditorTopMaskHeight)
-    networkEditor.setMask(QtGui.QRegion(0, networkEditorTopMaskHeight, size.width(), size.height()))
+    network_editor.move(pos.x(), pos.y() - network_editorTopMaskHeight - 16)
+    network_editor.resize(size.width(), size.height() + network_editorTopMaskHeight)
+    network_editor.setMask(QtGui.QRegion(0, network_editorTopMaskHeight, size.width(), size.height()))
 
-    return networkEditor
+    return network_editor
