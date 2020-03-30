@@ -1,4 +1,5 @@
-import hou, nodegraph, os, csv, sys, traceback, math, houdinihelp, weakref, utility_ui, inspect
+import hou, nodegraph, os, csv, sys, traceback, math, houdinihelp, weakref, inspect
+import utility_ui, hcursor
 from hou import parmTemplateType
 from collections import defaultdict
 import nodegraphbase as base
@@ -788,7 +789,14 @@ class NodeTypeModel(QtCore.QAbstractListModel):
                         new_node.setInput(index, selected[i])
                         index += 1
 
-            new_node.moveToGoodPosition(move_inputs=False)
+            if hou.selectedNodes():
+                new_node.moveToGoodPosition(move_inputs=False)
+                utility_ui.snap_to_grid(new_node)
+                hcursor.cursor.move(dy=-1)
+            else:
+                new_node.setPosition(hcursor.cursor.position + utility_ui.node_centroid - hou.Vector2(1, 0))
+                hcursor.cursor.move(dy=-1)
+            hcursor.force_editor_update(hcommander.editor)
             new_node.setSelected(True, clear_all_selected=True)
             new_node.setDisplayFlag(True)
             if hasattr(new_node, "setRenderFlag"): new_node.setRenderFlag(True)

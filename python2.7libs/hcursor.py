@@ -24,6 +24,9 @@ class Cursor(object):
 
     def move(self, dx=0, dy=0):
         self.position += hou.Vector2(dx, dy)
+    
+    def incr(self):
+        self.move(dy=1)
 
     def select(self, uievent):
         pos1 = self.position + self.half_extent
@@ -163,3 +166,6 @@ class EditorUpdates(_OriginalEditorUpdates):
 
 # I know this is a crime against humanity. I'm sorry.
 utils.EditorUpdates = this.EditorUpdates
+
+def force_editor_update(editor):
+    utils.EditorUpdates().applyToEditor(editor)

@@ -2,6 +2,7 @@ import hou, nodegraph, os, csv, sys, traceback
 import hdefereval
 import types
 import ctypes
+import utility_ui
 from PySide2 import QtCore, QtWidgets, QtGui
 from utility_ui import *
 from canvaseventtypes import *
@@ -269,8 +270,7 @@ def layout(uievent, items=()):
         ancestor.setPosition((math.floor(position.x()), y))
     
     for child in items:
-        position = child.position()
-        child.setPosition((math.floor(position.x()) + 0.5, -0.15 + math.ceil(position.y())))
+        snap_to_grid(child)
 
 def drag(include_ancestors=False, dx=0, dy=0):
     items = set(hou.selectedItems())

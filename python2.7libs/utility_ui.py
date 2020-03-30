@@ -8,6 +8,11 @@ import shiboken2
 from PySide2 import QtCore, QtWidgets, QtGui
 from canvaseventtypes import *
 
+node_centroid = hou.Vector2(0.5, -0.15)
+def snap_to_grid(item):
+    position = item.position()
+    item.setPosition(node_centroid + hou.Vector2(math.floor(position.x()), math.ceil(position.y())))
+
 
 class WeakParmTupleList(object):
     def __init__(self):
