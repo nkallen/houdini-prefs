@@ -1,4 +1,4 @@
-import hou, traceback, sys
+import hou, traceback, sys, weakref
 from hou import parmTemplateType
 from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Qt
@@ -22,62 +22,103 @@ def createEventHandler(uievent, pending_actions):
 
 DPI=2 # FIXME
 
+this.saved = set()
+
 class Overlay(QtWidgets.QWidget):
     def __init__(self, editor, parent=None):
         super(Overlay, self).__init__(parent)
         self._editor = editor
+        self._node2buttons = {}
         self._setup_ui()
+        self.setAcceptDrops(True)
 
     def _setup_ui(self):
         # Create a transparent window on top of the network editor.
         bounds = self._editor.screenBounds()
-        size = bounds.size()
-        self.resize(size.x()/DPI, size.y()/DPI)
+        self._size = bounds.size()
+        self.resize(self._size.x()/DPI, self._size.y()/DPI)
+        self.setAutoFillBackground(False)
 
         # This is a hacky way to get the global/absolute position of the editor using the 3 cursor
         # coordinate systems.
         self._xoffset = (QtGui.QCursor.pos().x()*DPI - self._editor.posToScreen(self._editor.cursorPosition()).x())/DPI
-        self._yoffset = (QtGui.QCursor.pos().y()*DPI + self._editor.posToScreen(self._editor.cursorPosition()).y())/DPI - size.y()/DPI
+        self._yoffset = (QtGui.QCursor.pos().y()*DPI + self._editor.posToScreen(self._editor.cursorPosition()).y())/DPI - self._size.y()/DPI
         self.move(self._xoffset, self._yoffset)
 
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint | QtCore.Qt.X11BypassWindowManagerHint)
         self.setStyleSheet("QWidget{background-color:rgba(1,1,1,0.1)}")
-        # self.grabKeyboard()
 
         for item, rect in self._editor.allVisibleRects(()):
             if not isinstance(item, hou.Node): continue
 
-            posx = self._editor.posToScreen(rect.max()).x()/DPI
-            posy = size.y()/DPI - self._editor.posToScreen(rect.min()).y()/DPI
-            unit = self._editor.lengthToScreen(1)/DPI
-            marginx = unit/10
-            marginy = -unit/30
-            posx += marginx
-            posy += marginy
-           
-            initialposx = posx
-            initialposy = posy
-            for i, parm_tuple in enumerate(item.parmTuples()):
-                if parm_tuple.isHidden(): continue
-                if parm_tuple.isAtDefault(): continue
-                type = parm_tuple.parmTemplate().type()
-                if not type in (parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle): continue
+            self._setup_item(item, rect, self._saved())
 
-                button = Button(parm_tuple, parent=self)
-                button.move(posx, posy)
-                font_size = math.ceil(self._editor.lengthToScreen(1)/DPI/6)
-                button.setStyleSheet("QPushButton{ padding: 0; font-size: " + str(font_size) + "px; background-color: rgb(38,56,76);}")
-                button.clicked.connect(self._clicked)
-                button.show()
-                button.setProperty("parm_tuple", parm_tuple)
-                posx += button.frameGeometry().width()
-                if posx-initialposx > unit:
-                    posx = initialposx
-                    posy += button.frameGeometry().height()
-                if posy-initialposy >= 0.5*unit:
-                    break
+    def _setup_item(self, item, rect, saved):
+        posx = self._editor.posToScreen(rect.max()).x()/DPI
+        posy = self._size.y()/DPI - self._editor.posToScreen(rect.min()).y()/DPI
+        unit = self._editor.lengthToScreen(1)/DPI
+        marginx, marginy = unit/10, -unit/30
+        posx += marginx
+        posy += marginy
+        
+        display_first = []; display_after = []
+        for parm_tuple in item.parmTuples():
+            type = parm_tuple.parmTemplate().type()
+            if not type in (parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle): continue
+            if parm_tuple.isHidden(): continue
+            if parm_tuple in saved:
+                display_first.append(parm_tuple)
+            elif not parm_tuple.isAtDefault():
+                display_after.append(parm_tuple)
+        
+        buttons = []
+        parm_tuples_to_display = display_first + display_after
+        initialposx, initialposy = posx, posy
+        for parm_tuple in parm_tuples_to_display:
+            button = Button(parm_tuple, parent=self)
+            button.move(posx, posy)
+            font_size = math.ceil(self._editor.lengthToScreen(1)/DPI/6)
+            button.setStyleSheet("QPushButton{ padding: 0; font-size: " + str(font_size) + "px; background-color: rgb(38,56,76);}")
+            button.clicked.connect(self._clicked)
+            button.show()
+            button.setProperty("parm_tuple", parm_tuple)
+            posx += button.frameGeometry().width()
+            if posx-initialposx > unit:
+                posx = initialposx
+                posy += button.frameGeometry().height()
+            if posy-initialposy >= 0.5*unit:
+                break
+            buttons.append(button)
 
-        self.setAutoFillBackground(False)
+        self._node2buttons[item] = buttons
+
+    def dragEnterEvent(self, event):
+        data = event.mimeData().data(hou.qt.mimeType.parmPath)
+        if not data.isEmpty():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        data = event.mimeData().data(hou.qt.mimeType.parmPath)
+        if not data.isEmpty():
+            nodes = set()
+            for parm_path in str(data).split("\t"):
+                this.saved.add(parm_path)
+                nodes.add(hou.parm(parm_path).node())
+            saved = self._saved()
+            for node in nodes:
+                if node in self._node2buttons:
+                    for button in self._node2buttons[node]:
+                        button.setParent(None)
+                        button.hide()
+                    rect = self._editor.itemRect(node)
+                    self._setup_item(node, rect, saved)
+
+    def _saved(self):
+        saved = set()
+        for parm_path in this.saved:
+            try: saved.add(hou.parm(parm_path).tuple())
+            except hou.NotAvailable: this.saved.discard(parm_path)
+        return saved
 
     def event(self, event):
         if event.type() == QtCore.QEvent.KeyRelease and event.key() == Qt.Key_Shift:
