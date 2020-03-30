@@ -1,5 +1,4 @@
 Class,Selection,Icon,Label,Name,Description,fn
 hou.Node,* < groupcreate,,Set group,g,,...
 hou.Node,grouprange,,First point,ff,,"hou.selectedNodes()[0].setParms({""groupname1"": ""first"", ""grouptype1"": 0, ""method1"": 2, ""start1"": 0, ""length1"": 1, ""invert1"": 0})"
-hou.Node,grouprange,,Last point,ll,,"hou.selectedNodes()[0].setParms({""groupname1"": ""last"", ""grouptype1"": 0, ""method1"": 1, ""start1"": 0, ""end1"": 1, ""invert1"": 1})"
-hou.Node,,BUTTONS_create_parm_from_ch,Create spare parameters,,For each unique call of ch and chramp,"print(""hello world"", hou)"
+hou.Node,"matchesSelector(obj, ""grouprange"")",,Last point,ll,,"hou.selectedNodes()[0].setParms({""groupname1"": ""last"", ""grouptype1"": 0, ""method1"": 1, ""start1"": 0, ""end1"": 1, ""invert1"": 1})"
