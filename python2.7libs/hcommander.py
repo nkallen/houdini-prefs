@@ -17,13 +17,14 @@ quickly run commands or edit nodes using only the keyboard.
 
 this = sys.modules[__name__]
 
-ParmTupleRole    = Qt.UserRole 
+ParmTupleRole    = Qt.UserRole + 0
 AutoCompleteRole = Qt.UserRole + 1
 WhichMatchRole   = Qt.UserRole + 2
 CallbackRole     = Qt.UserRole + 3
 NodeTypeRole     = Qt.UserRole + 4
 SortKeyRole      = Qt.UserRole + 5
-ActionRole       = Qt.UserRole + 5
+ActionRole       = Qt.UserRole + 6
+IconRole         = Qt.UserRole + 7
 
 this.window = None
 def reset_state(): this.window = None
@@ -355,11 +356,11 @@ class InputField(QtWidgets.QWidget):
     def __init__(self, parent, index, filter, highlight=False):
         super(InputField, self).__init__(parent)
 
-        autocompletes = index.data(AutoCompleteRole)
-        which_match = index.data(WhichMatchRole)
-        parm_tuple = index.data(ParmTupleRole)
-        whats_this = index.data(Qt.WhatsThisRole)
-        icon = index.data(Qt.DecorationRole)
+        autocompletes   = index.data(AutoCompleteRole)
+        which_match     = index.data(WhichMatchRole)
+        parm_tuple      = index.data(ParmTupleRole)
+        whats_this      = index.data(Qt.WhatsThisRole)
+        icon            = index.data(IconRole)
         self.parm_tuple = parm_tuple
 
         layout = QtWidgets.QHBoxLayout()
@@ -369,7 +370,7 @@ class InputField(QtWidgets.QWidget):
         if icon:
             icon_size = hou.ui.scaledSize(64)
             pixmap = icon.pixmap(QtCore.QSize(icon_size, icon_size))
-            label = QtWidgets.QLabel(self)
+            label = QtWidgets.QLabel()
             label.setPixmap(pixmap)
             layout.addWidget(label)
 
@@ -646,7 +647,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
         elif role == Qt.BackgroundRole:
             if parm_tuple.isAtDefault():
                 return QtGui.QBrush(hou.qt.getColor("ListBG"))
-        elif role == Qt.DecorationRole:
+        elif role == IconRole:
             return ParmTupleModel.type2icon(parm_tuple.parmTemplate().type())
         elif role == CallbackRole:
             return self.callback
@@ -704,7 +705,7 @@ class ActionModel(QtCore.QAbstractListModel):
         elif role == Qt.WhatsThisRole:  return action.description
         elif role == SortKeyRole:       return 100
         elif role == CallbackRole:      return self.callback
-        elif role == Qt.DecorationRole: return action.icon
+        elif role == IconRole: return action.icon
         return None
 
     def flags(self, index):
@@ -752,7 +753,7 @@ class NodeTypeModel(QtCore.QAbstractListModel):
                 tooltip = houdinihelp.api.getTooltip(url)
                 NodeTypeModel.type2tooltip[node_type] = tooltip
             return NodeTypeModel.type2tooltip[node_type]
-        elif role == Qt.DecorationRole:
+        elif role == IconRole:
             try: return hou.qt.Icon(node_type.icon())
             except: pass
         elif role == CallbackRole:
