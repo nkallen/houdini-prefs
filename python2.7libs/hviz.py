@@ -1,9 +1,8 @@
-import hou, traceback, sys, weakref
+import hou, traceback, sys, weakref, math
 from hou import parmTemplateType
 from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Qt
-import math
-import hcommander
+import hcommander, utility_ui
 
 this = sys.modules[__name__]
 
@@ -22,7 +21,7 @@ def createEventHandler(uievent, pending_actions):
 
 DPI=2 # FIXME
 
-this.saved = set()
+this.saved = utility_ui.WeakParmTupleList()
 
 class Overlay(QtWidgets.QWidget):
     def __init__(self, editor, parent=None):
@@ -51,9 +50,9 @@ class Overlay(QtWidgets.QWidget):
         for item, rect in self._editor.allVisibleRects(()):
             if not isinstance(item, hou.Node): continue
 
-            self._setup_item(item, rect, self._saved())
+            self._setup_item(item, rect)
 
-    def _setup_item(self, item, rect, saved):
+    def _setup_item(self, item, rect):
         posx = self._editor.posToScreen(rect.max()).x()/DPI
         posy = self._size.y()/DPI - self._editor.posToScreen(rect.min()).y()/DPI
         unit = self._editor.lengthToScreen(1)/DPI
@@ -66,7 +65,7 @@ class Overlay(QtWidgets.QWidget):
             type = parm_tuple.parmTemplate().type()
             if not type in (parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle): continue
             if parm_tuple.isHidden(): continue
-            if parm_tuple in saved:
+            if parm_tuple in this.saved:
                 display_first.append(parm_tuple)
             elif not parm_tuple.isAtDefault():
                 display_after.append(parm_tuple)
@@ -102,23 +101,16 @@ class Overlay(QtWidgets.QWidget):
         if not data.isEmpty():
             nodes = set()
             for parm_path in str(data).split("\t"):
-                this.saved.add(parm_path)
-                nodes.add(hou.parm(parm_path).node())
-            saved = self._saved()
+                parm_tuple = hou.parm(parm_path).tuple()
+                this.saved.append(parm_tuple)
+                nodes.add(parm_tuple.node())
             for node in nodes:
                 if node in self._node2buttons:
                     for button in self._node2buttons[node]:
                         button.setParent(None)
                         button.hide()
                     rect = self._editor.itemRect(node)
-                    self._setup_item(node, rect, saved)
-
-    def _saved(self):
-        saved = set()
-        for parm_path in this.saved:
-            try: saved.add(hou.parm(parm_path).tuple())
-            except hou.NotAvailable: this.saved.discard(parm_path)
-        return saved
+                    self._setup_item(node, rect)
 
     def event(self, event):
         if event.type() == QtCore.QEvent.KeyRelease and event.key() == Qt.Key_Shift:

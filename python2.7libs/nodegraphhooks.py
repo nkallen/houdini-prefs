@@ -1,7 +1,7 @@
 import hou, os, sys
 from PySide2 import QtCore
 from canvaseventtypes import KeyboardEvent, MouseEvent
-import utility_hotkey_system, hcommander, hviz, hcursor
+import utility_hotkey_system, hcommander, hviz, hcursor, utility_ui
 
 this = sys.modules[__name__]
 
@@ -15,6 +15,7 @@ def __reload_pythonlibs():
     reload(hcommander)
     reload(hcursor)
     reload(hviz)
+    reload(utility_ui)
 
 fs_watcher = QtCore.QFileSystemWatcher()
 fs_watcher.addPath(os.path.join(__pythonlibs, "nodegraphhooks.py"))
@@ -22,6 +23,7 @@ fs_watcher.addPath(os.path.join(__pythonlibs, "utility_hotkey_system.py"))
 fs_watcher.addPath(os.path.join(__pythonlibs, "hcommander.py"))
 fs_watcher.addPath(os.path.join(__pythonlibs, "hcursor.py"))
 fs_watcher.addPath(os.path.join(__pythonlibs, "hviz.py"))
+fs_watcher.addPath(os.path.join(__pythonlibs, "utility_ui.py"))
 fs_watcher.fileChanged.connect(__reload_pythonlibs)
 
 def createEventHandler(uievent, pending_actions):

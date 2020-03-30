@@ -9,6 +9,43 @@ from PySide2 import QtCore, QtWidgets, QtGui
 from canvaseventtypes import *
 
 
+class WeakParmTupleList(object):
+    def __init__(self):
+        self._underlying = list()
+        self._uniq = set()
+
+    def append(self, parm_tuple):
+        path = WeakParmTupleList.parm_tuple_path(parm_tuple)
+        if not path in self._uniq:
+            self._uniq.add(path)
+            self._underlying.append(path)
+
+    def items(self):
+        result = list()
+        underlying = []
+        for path in self._underlying:
+            try:
+                result.append(hou.parmTuple(path))
+                underlying.append(path)
+            except hou.NotAvailable: pass
+        self._underlying = underlying
+        self._uniq = set(underlying)
+        return result
+    
+    def __iter__(self):
+        return self.items().__iter__()
+
+    def __len__(self):
+        return self.items().__len__()
+    
+    def __getitem__(self, index):
+        return self.items().__getitem__(index)
+
+    @staticmethod
+    def parm_tuple_path(parm_tuple):
+        return parm_tuple.node().path() + "/" + parm_tuple.name()
+
+
 def modifierstate2modifiers(modifierstate):
     modifiers = 0
     if modifierstate.shift:

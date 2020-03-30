@@ -237,7 +237,7 @@ class ItemDelegate(QStyledItemDelegate):
 
         if option.state & QStyle.State_Selected:
             # Draw the background but nothing else
-            option.text = ""
+            option.text = ""; option.icon = QtGui.QIcon()
             style.drawControl(QtWidgets.QStyle.CE_ItemViewItem, option, painter, option.widget)
             text_rect = style.subElementRect(QtWidgets.QStyle.SE_ItemViewItemText, option, option.widget)
         elif background:
@@ -444,13 +444,12 @@ class InputField(QtWidgets.QWidget):
         return False
 
     def delta(self, delta, modifiers, obj):
-        scale = 0.01
-        f = float
         type = self.parm_tuple.parmTemplate().type()
+        if type not in (parmTemplateType.Int, parmTemplateType.Float): return
         if type == parmTemplateType.Int:
-            f = int
-            scale = 1
+            f = int; scale = 1
         else:
+            f = float; scale = 0.01
             if modifiers & Qt.ShiftModifier: scale = 0.001
             if modifiers & Qt.MetaModifier: scale = 0.1
             if modifiers & Qt.AltModifier: scale = 1
@@ -620,7 +619,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
     @staticmethod
     def _filter(parmTuples):
         valid_types = { parmTemplateType.Int, parmTemplateType.Float, parmTemplateType.String, parmTemplateType.Toggle }
-        parmTuples = list(pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled())
+        parmTuples = [pt for pt in parmTuples if pt.parmTemplate().type() in valid_types and not pt.isHidden() and not pt.isDisabled()]
         return parmTuples
 
     def __init__(self, parm_tuples, parent=None):
@@ -648,7 +647,7 @@ class ParmTupleModel(QtCore.QAbstractListModel):
             if parm_tuple.isAtDefault():
                 return QtGui.QBrush(hou.qt.getColor("ListBG"))
         elif role == Qt.DecorationRole:
-            ParmTupleModel.type2icon(parm_tuple.parmTemplate().type())
+            return ParmTupleModel.type2icon(parm_tuple.parmTemplate().type())
         elif role == CallbackRole:
             return self.callback
         elif role == SortKeyRole:
@@ -700,12 +699,12 @@ class ActionModel(QtCore.QAbstractListModel):
     def data(self, index, role):
         action = self._actions[index.row()]
 
-        if   role == ActionRole:       return action
-        elif role == AutoCompleteRole: return (action.label, action.name)
-        elif role == Qt.WhatsThisRole: return action.description
-        elif role == SortKeyRole:      return 100
-        elif role == CallbackRole:     return self.callback
-
+        if   role == ActionRole:        return action
+        elif role == AutoCompleteRole:  return (action.label, action.name)
+        elif role == Qt.WhatsThisRole:  return action.description
+        elif role == SortKeyRole:       return 100
+        elif role == CallbackRole:      return self.callback
+        elif role == Qt.DecorationRole: return action.icon
         return None
 
     def flags(self, index):
@@ -773,9 +772,8 @@ class NodeTypeModel(QtCore.QAbstractListModel):
 
     def callback(self, index, hcommander, list):
         with hou.undos.group("Create Node"):
-            path = hcommander.editor.pwd().path()
             node_type = index.data(NodeTypeRole)
-            new_node = hou.node(path).createNode(node_type.name())
+            new_node = hcommander.editor.pwd().createNode(node_type.name())
 
             selected = hou.selectedNodes()
             if selected:
@@ -855,7 +853,7 @@ class Action(object):
             reader = csv.DictReader(f)
             for row in reader:
                 klass = eval(row["Class"], {'hou': hou})
-                action = Action(row["Label"], row["Name"], row["Description"], row["fn"])
+                action = Action(row["Icon"], row["Label"], row["Name"], row["Description"], row["fn"])
                 Action._actions[klass][row["Selection"]].append(action)
 
     @staticmethod
@@ -870,7 +868,8 @@ class Action(object):
             result += actions_for_class[selector]
         return result
 
-    def __init__(self, label, name, description, fn):
+    def __init__(self, icon, label, name, description, fn):
+        self.icon = hou.qt.Icon(icon) if icon else None
         self.label = label
         self.name = name
         self.description = description
@@ -882,4 +881,4 @@ __fs_watcher = QtCore.QFileSystemWatcher()
 __fs_watcher.addPath(Action.configfile)
 __fs_watcher.fileChanged.connect(Action.load)
 
-hou.session._hcommander_saved = ParmTupleModel([])
+hou.session._hcommander_saved = ParmTupleModel(utility_ui.WeakParmTupleList())
